@@ -9,8 +9,7 @@ interface DocumentIdPageProps {
 const DocumentIdPage = async ({ params }: DocumentIdPageProps) => {
     const { documentId } = await params;
     return (
-        <div>
-            <h1>Document: {documentId}</h1>
+        <div className="min-h-screen bg-[#FAFB]">
             <Editor/>
         </div>
     );
