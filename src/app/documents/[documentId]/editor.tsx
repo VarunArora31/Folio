@@ -10,6 +10,7 @@ import { TableKit } from "@tiptap/extension-table";
 import Image from "@tiptap/extension-image";
 
 import { useEditorStore } from "@/store/use-editor-store";
+import Hightlight from "@tiptap/extension-highlight"
 
 export const Editor = () => {
     const { setEditor } = useEditorStore();
@@ -48,6 +49,9 @@ export const Editor = () => {
         },
         },
         extensions: [
+        Hightlight.configure({
+            multicolor: true, 
+        }),
         StarterKit,
         TableKit.configure({
             table: { resizable: true },

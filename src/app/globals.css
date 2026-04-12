@@ -479,3 +479,52 @@
     border-radius: 0.125rem;
   }
 }
+/* Customizing the text selection color inside the editor */
+.tiptap ::selection {
+  /* A soft, modern blue (Tailwind's blue-200) */
+  background-color: #bfdbfe; 
+  /* Ensures the text remains the original color and doesn't turn white */
+  color: inherit; 
+}
+
+/* Optional: You can also change the color for when the editor is NOT focused */
+.tiptap ::-moz-selection {
+  background-color: #bfdbfe;
+}
+
+/* Styling for the table cell selection */
+.tiptap table .selectedCell {
+  position: relative;
+}
+
+.tiptap table .selectedCell:after {
+  /* Use a soft blue overlay to make it look like a selection */
+  background: rgba(191, 219, 254, 0.4); 
+  content: "";
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  pointer-events: none;
+  position: absolute;
+  z-index: 2;
+}
+
+/* Ensure the table borders remain visible under the selection */
+.tiptap table {
+  border-collapse: collapse;
+  table-layout: fixed;
+  width: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+
+.tiptap table td,
+.tiptap table th {
+  min-width: 1em;
+  border: 1px solid #ced4da;
+  padding: 3px 5px;
+  vertical-align: top;
+  box-sizing: border-box;
+  position: relative;
+}
