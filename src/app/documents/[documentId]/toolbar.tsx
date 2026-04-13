@@ -1,125 +1,403 @@
-"use client"; // Client Component
-import { Icon, 
-    LucideIcon, 
-    Redo2Icon, 
-    Undo2Icon, 
-    PrinterIcon, 
-    SpellCheck2Icon, 
-    BoldIcon, 
-    ItalicIcon, 
-    UnderlineIcon,
-    HighlighterIcon,
-    Highlighter
+"use client";
+import { useState, useCallback, useEffect } from "react";
+import {
+  Redo2Icon,
+  Undo2Icon,
+  PrinterIcon,
+  SpellCheck2Icon,
+  BoldIcon,
+  ItalicIcon,
+  UnderlineIcon,
+  HighlighterIcon,
+  ChevronDownIcon,
+  type LucideIcon,
+  MessageSquarePlusIcon,
+  ListTodoIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useEditorStore } from "@/store/use-editor-store";
 import { Separator } from "@/components/ui/separator";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { useHighlighterPen } from "@/hooks/use-highlighter-pen";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
-interface ToolbarButtonProps {
-    onClick?: () => void;
-    isActive?: boolean;
-    icon: LucideIcon;
-}
-const ToolbarButton = (props: ToolbarButtonProps) => {
-    const { onClick, isActive, icon: Icon } = props;    
-    return (
-        <button
-            onClick={onClick}
-            // using cn utility function to conditionally apply classes based on the isActive prop. 
-            // If isActive is true, the button will have a background color of bg-neutral-200/80, otherwise it will not have that background color.
-            className={cn(
-                "text-sm h-7 min-w-7 flex items-center justify-center rounded-sm hover:bg-neutral-200/80",
-                isActive && "bg-neutral-200/80"
-            )}
-        >
-            <Icon className="size-4"/>
+// ─── Font Family ──────────────────────────────────────────────────────────────
+const FontFamilyButton = () => {
+  const { editor } = useEditorStore();
+  const fonts = [
+    { label: "Arial", value: "Arial" },
+    { label: "Times New Roman", value: "Times New Roman" },
+    { label: "Courier New", value: "Courier New" },
+    { label: "Georgia", value: "Georgia" },
+    { label: "Monospace", value: "Monospace" },
+    { label: "Cursive", value: "Cursive" },
+    { label: "Comic Sans MS", value: "Comic Sans MS, Comic Sans" },
+    { label: "Exo 2", value: "Exo2" },
+  ];
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button className="h-7 w-32 shrink-0 flex items-center justify-between rounded-sm hover:bg-neutral-200/80 px-1.5 overflow-hidden text-sm">
+          <span className="truncate">
+            {editor?.getAttributes("textStyle").fontFamily || "Times New Roman"}
+          </span>
+          <ChevronDownIcon className="ml-1 size-3.5 shrink-0 text-neutral-500" />
         </button>
-    );
+      </DropdownMenuTrigger>
+      <DropdownMenuContent className="p-1 flex flex-col gap-y-0.5 min-w-40">
+        {fonts.map(({ label, value }) => (
+          <DropdownMenuItem
+            key={value}
+            onClick={() => editor?.chain().focus().setFontFamily(value).run()}
+            className={cn(
+              "px-2 py-1.5 rounded-sm text-sm cursor-pointer",
+              editor?.getAttributes("textStyle").fontFamily === value &&
+                "bg-neutral-200/80",
+            )}
+            style={{ fontFamily: value }}
+          >
+            {label}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+};
+
+// ─── Highlight presets ────────────────────────────────────────────────────────
+const HIGHLIGHT_PRESETS = [
+  { label: "Yellow", value: "#FFF176", textColor: "#7A6B00" },
+  { label: "Green", value: "#B9F6CA", textColor: "#1B5E20" },
+  { label: "Cyan", value: "#80DEEA", textColor: "#005F6B" },
+  { label: "Pink", value: "#F48FB1", textColor: "#7B1235" },
+  { label: "Orange", value: "#FFCC80", textColor: "#7A3E00" },
+  { label: "Lavender", value: "#CE93D8", textColor: "#4A148C" },
+];
+
+// ─── Toolbar button ───────────────────────────────────────────────────────────
+interface ToolbarButtonProps {
+  onClick?: () => void;
+  isActive?: boolean;
+  icon: LucideIcon;
 }
 
-export const Toolbar = () => {
-    const { editor } = useEditorStore();
-    const sections: {
-      label: string;
-      icon: LucideIcon;
-      onClick: () => void;
-      isActive: boolean;
-    }[][] = [
-      [
-        {
-          label: "Undo",
-          icon: Undo2Icon,
-          onClick: () => editor?.chain().focus().undo().run(),
-          isActive: false,
-        },
-        {
-          label: "Redo",
-          icon: Redo2Icon,
-          onClick: () => editor?.chain().focus().redo().run(),
-          isActive: false,
-        },
-        {
-          label: "Print",
-          icon: PrinterIcon,
-          onClick: () => window.print(),
-          isActive: false,
-        },
-        {
-          label: "Spell Check",
-          icon: SpellCheck2Icon,
-          // Browser's built-in spell check is typically enabled by setting the "spellcheck" attribute on the contenteditable element (in this case, the editor's DOM element).
-          onClick: () =>
-            editor?.view.dom.getAttribute("spellcheck") === "true"
-              ? editor?.view.dom.setAttribute("spellcheck", "false")
-              : editor?.view.dom.setAttribute("spellcheck", "true"),
-          isActive: false,
-        },
-      ],
-      [
-        {
-          label: "Bold",
-          icon: BoldIcon,
-          onClick: () => editor?.chain().focus().toggleBold().run(),
-          isActive: editor?.isActive("bold") || false,
-        },
-        {
-          label: "Italic",
-          icon: ItalicIcon,
-          onClick: () => editor?.chain().focus().toggleItalic().run(),
-          isActive: editor?.isActive("italic") || false,
-        },
-        {
-          label: "Underline",
-          icon: UnderlineIcon,
-          onClick: () => editor?.chain().focus().toggleUnderline().run(),
-          isActive: editor?.isActive("underline") || false,
-        },
-        {
-          label: "Highlighter",
-          icon: Highlighter,
-          onClick: () =>
-            editor?.chain().focus().toggleHighlight({ color: "#ffff00" }).run(),
-          isActive: editor?.isActive("highlight") || false,
-        },
-      ],
-    ];
-    return (
-      <div className="bg-[#f1f4f9] px-2.5 py-0.5 rounded-[24px] min-h-10 flex items-center gap-x-0.5 overflow-x-auto">
-        {sections.map((section) => (
-          <div key={section[0].label} className="flex items-center gap-x-0.5">
-            {section.map((item) => (
-              <ToolbarButton key={item.label} {...item} />
+const ToolbarButton = ({
+  onClick,
+  isActive,
+  icon: Icon,
+}: ToolbarButtonProps) => (
+  <button
+    onClick={onClick}
+    className={cn(
+      "text-sm h-7 min-w-7 flex items-center justify-center rounded-sm hover:bg-neutral-200/80 transition-colors",
+      isActive && "bg-neutral-200/80",
+    )}
+  >
+    <Icon className="size-4" />
+  </button>
+);
+
+// ─── Pen cursor ───────────────────────────────────────────────────────────────
+const HIGHLIGHTER_CURSOR = (color: string): string => {
+  const dark = color + "CC";
+  const nib = color + "99";
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='28' height='36' viewBox='0 0 28 36'><rect x='8' y='0' width='12' height='22' rx='2' fill='${color}' stroke='%23999' stroke-width='0.8'/><rect x='8' y='16' width='12' height='5' rx='1' fill='${dark}' stroke='%23999' stroke-width='0.8'/><rect x='8' y='0' width='12' height='6' rx='2' fill='%23ffffffaa' stroke='%23999' stroke-width='0.8'/><polygon points='9,21 19,21 17,28 11,28' fill='${nib}' stroke='%23888' stroke-width='0.7'/><polygon points='11,27 17,27 14,34' fill='%23555' stroke='%23444' stroke-width='0.6'/></svg>`;
+  return `url("data:image/svg+xml,${encodeURIComponent(svg)}") 14 34, crosshair`;
+};
+
+// ─── Highlight button ─────────────────────────────────────────────────────────
+const HighlightButton = () => {
+  const { editor, highlightColor, setHighlightColor } = useEditorStore();
+  const [open, setOpen] = useState(false);
+  const [penMode, setPenMode] = useState(false);
+
+  useHighlighterPen(editor, penMode, highlightColor);
+
+  useEffect(() => {
+    const dom = editor?.view.dom as HTMLElement | undefined;
+    if (!dom) return;
+    if (penMode) {
+      dom.style.cursor = HIGHLIGHTER_CURSOR(highlightColor);
+      dom.style.userSelect = "none";
+      dom.style.webkitUserSelect = "none";
+    } else {
+      dom.style.cursor = "";
+      dom.style.userSelect = "";
+      dom.style.webkitUserSelect = "";
+    }
+  }, [penMode, highlightColor, editor]);
+
+  useEffect(() => {
+    if (!penMode) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setPenMode(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [penMode]);
+
+  const selectionColor: string =
+    editor?.getAttributes("highlight").color ?? "none";
+  const isHighlightActive = editor?.isActive("highlight") ?? false;
+  const displayColor = isHighlightActive ? selectionColor : highlightColor;
+
+  const applyColor = useCallback(
+    (color: string) => {
+      if (!editor) return;
+      if (color === "none") {
+        editor.chain().focus().unsetHighlight().run();
+      } else {
+        setHighlightColor(color);
+        const { from, to } = editor.state.selection;
+        if (from !== to) {
+          editor.chain().focus().setHighlight({ color }).run();
+        }
+      }
+      setOpen(false);
+    },
+    [editor, setHighlightColor],
+  );
+
+  return (
+    <div className="flex items-center">
+      <button
+        onClick={() => {
+          setPenMode((p) => !p);
+          editor?.commands.focus();
+        }}
+        title={
+          penMode
+            ? "Pen active — drag to highlight. Press Esc to exit."
+            : "Highlighter pen"
+        }
+        className={cn(
+          "relative h-7 w-7 flex flex-col items-center justify-center rounded-sm transition-all gap-0.5",
+          penMode
+            ? "bg-yellow-100 ring-2 ring-yellow-400 ring-offset-1"
+            : "hover:bg-neutral-200/80",
+        )}
+      >
+        <HighlighterIcon className="size-4" />
+        <div
+          className="h-0.75 w-4 rounded-full transition-colors"
+          style={{
+            backgroundColor: displayColor === "none" ? "#d1d5db" : displayColor,
+          }}
+        />
+        {penMode && (
+          <span className="absolute -top-1 -right-1 size-2 rounded-full bg-yellow-400 ring-1 ring-white" />
+        )}
+      </button>
+
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <button
+            className="h-7 w-4 flex items-center justify-center rounded-sm hover:bg-neutral-200/80 transition-colors"
+            title="Choose highlight color"
+          >
+            <ChevronDownIcon className="size-3 text-neutral-500" />
+          </button>
+        </PopoverTrigger>
+
+        <PopoverContent
+          align="start"
+          className="w-56 p-4 rounded-2xl border border-neutral-100 shadow-xl bg-white"
+          onOpenAutoFocus={(e) => e.preventDefault()}
+        >
+          <p className="text-[10px] font-medium tracking-[0.14em] text-neutral-400 uppercase mb-3">
+            Highlight color
+          </p>
+
+          <div className="grid grid-cols-3 gap-1.5 mb-3">
+            {HIGHLIGHT_PRESETS.map((preset) => (
+              <button
+                key={preset.value}
+                title={preset.label}
+                onClick={() => applyColor(preset.value)}
+                className={cn(
+                  "h-8 w-full rounded-xl text-[11px] font-medium tracking-wide transition-all hover:scale-[1.04]",
+                  highlightColor === preset.value
+                    ? "ring-2 ring-offset-1 ring-sky-400 scale-[1.04]"
+                    : "hover:ring-1 hover:ring-neutral-300",
+                )}
+                style={{
+                  backgroundColor: preset.value,
+                  color: preset.textColor,
+                  border: "none",
+                }}
+              >
+                {preset.label}
+              </button>
             ))}
-            <Separator orientation="vertical" className="h-5 bg-neutral-300" />
-            {/*TODO: FONT SIZE*/}
-            <Separator orientation="vertical" className="h-5 bg-neutral-300" />
-            {/*TODO: FONT FAMILY*/}
-            <Separator orientation="vertical" className="h-5 bg-neutral-300" />
-            {/*TODO: HEADING*/}
-            <Separator orientation="vertical" className="h-5 bg-neutral-300" />
-            {/*TODO: TEXTALIGNMENT*/}
           </div>
-        ))}
-      </div>
-    );
+
+          <Separator className="mb-3" />
+
+          <div className="flex items-center gap-2.5 mb-3">
+            <label
+              className="relative size-6 rounded-md border border-neutral-200 cursor-pointer overflow-hidden shrink-0 hover:scale-105 transition-transform"
+              style={{ backgroundColor: highlightColor }}
+              title="Custom color"
+            >
+              <input
+                type="color"
+                value={highlightColor}
+                onChange={(e) => setHighlightColor(e.target.value)}
+                className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+              />
+            </label>
+            <span className="font-mono text-[12px] tracking-[0.04em] text-neutral-400">
+              {highlightColor.toUpperCase()}
+            </span>
+          </div>
+
+          <button
+            onClick={() => applyColor("none")}
+            className="w-full text-left flex items-center gap-2 py-0.5 group"
+          >
+            <span className="inline-flex size-4.5 rounded-[5px] border border-neutral-200 items-center justify-center shrink-0 transition-colors group-hover:border-red-300 group-hover:bg-red-50">
+              <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
+                <path
+                  d="M1.5 1.5L6.5 6.5M6.5 1.5L1.5 6.5"
+                  stroke="currentColor"
+                  strokeWidth="1.2"
+                  strokeLinecap="round"
+                  className="text-neutral-400 group-hover:text-red-400"
+                />
+              </svg>
+            </span>
+            <span className="text-[13px] text-neutral-400 group-hover:text-red-500 transition-colors">
+              Remove highlight
+            </span>
+          </button>
+        </PopoverContent>
+      </Popover>
+    </div>
+  );
+};
+
+// ─── Toolbar ──────────────────────────────────────────────────────────────────
+export const Toolbar = () => {
+  const { editor } = useEditorStore();
+
+  const historySection = [
+    {
+      label: "Undo",
+      icon: Undo2Icon,
+      onClick: () => editor?.chain().focus().undo().run(),
+      isActive: false,
+    },
+    {
+      label: "Redo",
+      icon: Redo2Icon,
+      onClick: () => editor?.chain().focus().redo().run(),
+      isActive: false,
+    },
+    {
+      label: "Print",
+      icon: PrinterIcon,
+      onClick: () => window.print(),
+      isActive: false,
+    },
+    {
+      label: "Spell Check",
+      icon: SpellCheck2Icon,
+      onClick: () => {
+        const cur = editor?.view.dom.getAttribute("spellcheck");
+        editor?.view.dom.setAttribute(
+          "spellcheck",
+          cur === "true" ? "false" : "true",
+        );
+      },
+      isActive: false,
+    },
+  ];
+
+  const formatSection = [
+    {
+      label: "Bold",
+      icon: BoldIcon,
+      onClick: () => editor?.chain().focus().toggleBold().run(),
+      isActive: editor?.isActive("bold") ?? false,
+    },
+    {
+      label: "Italic",
+      icon: ItalicIcon,
+      onClick: () => editor?.chain().focus().toggleItalic().run(),
+      isActive: editor?.isActive("italic") ?? false,
+    },
+    {
+      label: "Underline",
+      icon: UnderlineIcon,
+      onClick: () => editor?.chain().focus().toggleUnderline().run(),
+      isActive: editor?.isActive("underline") ?? false,
+    },
+  ];
+
+  const extraSection = [
+    {
+      label: "Comment",
+      icon: MessageSquarePlusIcon,
+      onClick: () => console.log("TODO: Comment"),
+      isActive: false,
+    },
+    {
+      label: "List Todo",
+      icon: ListTodoIcon,
+      onClick: () => editor?.chain().focus().toggleTaskList().run(),
+      isActive: editor?.isActive("taskList") ?? false,
+    },
+  ];
+
+  return (
+    <div className="bg-[#f1f4f9] px-2.5 py-0.5 rounded-[24px] min-h-10 flex items-center gap-x-0.5 overflow-x-auto">
+      {/* History */}
+      {historySection.map((item) => (
+        <ToolbarButton key={item.label} {...item} />
+      ))}
+
+      <Separator orientation="vertical" className="h-6 bg-neutral-300 mx-0.5" />
+
+      {/* Font family */}
+      <FontFamilyButton />
+
+      <Separator orientation="vertical" className="h-6 bg-neutral-300 mx-0.5" />
+
+      {/* TODO: Font size */}
+      {/* TODO: Heading */}
+
+      {/* Format */}
+      {formatSection.map((item) => (
+        <ToolbarButton key={item.label} {...item} />
+      ))}
+
+      {/* Highlight */}
+      <HighlightButton />
+
+      {/* TODO: Text color */}
+
+      <Separator orientation="vertical" className="h-6 bg-neutral-300 mx-0.5" />
+
+      {/* TODO: Text alignment */}
+      {/* TODO: Link */}
+      {/* TODO: Image */}
+      {/* TODO: Line height */}
+      {/* TODO: List */}
+
+      {/* Extra */}
+      {extraSection.map((item) => (
+        <ToolbarButton key={item.label} {...item} />
+      ))}
+    </div>
+  );
 };

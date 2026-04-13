@@ -12,6 +12,8 @@ import Image from "@tiptap/extension-image";
 import { useEditorStore } from "@/store/use-editor-store";
 import Hightlight from "@tiptap/extension-highlight"
 
+import { FontFamily, TextStyle } from "@tiptap/extension-text-style";
+
 export const Editor = () => {
     const { setEditor } = useEditorStore();
     // The useEditor hook initializes the editor and provides various lifecycle callbacks (e.g., onCreate, onUpdate, onFocus, etc.) 
@@ -67,6 +69,8 @@ export const Editor = () => {
             nested: true, // Allow nesting of task items within other task items, enabling the creation of sub-tasks.
         }),
         TaskList,
+        FontFamily,
+        TextStyle
         ],
         content: `
             <table>
