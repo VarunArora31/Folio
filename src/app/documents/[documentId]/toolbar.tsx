@@ -14,6 +14,7 @@ import {
   MessageSquarePlusIcon,
   ListTodoIcon,
 } from "lucide-react";
+import { type Level } from "@tiptap/extension-heading";
 import { cn } from "@/lib/utils";
 import { useEditorStore } from "@/store/use-editor-store";
 import { Separator } from "@/components/ui/separator";
@@ -30,7 +31,95 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-// ─── Font Family ──────────────────────────────────────────────────────────────
+// Heading 
+const HeadingLevelButton = () => {
+  const { editor } = useEditorStore();
+  const Headings = [
+    {
+      label: "Normal text",
+      value: 0,
+      fontSize: "16px",
+    },
+    {
+      label: "Heading 1",
+      value: 1,
+      fontSize: "32px",
+    },
+    {
+      label: "Heading 2",
+      value: 2,
+      fontSize: "24px",
+    },
+    {
+      label: "Heading 3",
+      value: 3,
+      fontSize: "20px",
+    },
+    {
+      label: "Heading 4",
+      value: 4,
+      fontSize: "18px",
+    },
+    {
+      label: "Heading 5",
+      value: 5,
+      fontSize: "16px",
+    },
+    {
+      label: "Heading 6",
+      value: 6,
+      fontSize: "14px",
+    },
+  ];
+
+  const getCurrentHeading = () => {
+    for (let level = 1; level <= 6; level++) {
+      if (editor?.isActive("heading", { level })) {
+        return `Heading ${level}`;
+      }
+    }
+    return "Normal text";
+  };
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button className="h-7 min-w-7 shrink-0 flex items-center justify-between rounded-sm hover:bg-neutral-200/80 px-1.5 overflow-hidden text-sm">
+          <span className="truncate">{getCurrentHeading()}</span>
+          <ChevronDownIcon className="ml-1 size-3.5 shrink-0 text-neutral-500" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent className="p-1 flex flex-col gap-y-0.5 min-w-40">
+        {Headings.map(({ label, value, fontSize }) => (
+          <DropdownMenuItem
+            key={value}
+            style={{ fontSize }}
+            onClick={() => {
+              if (value === 0) {
+                editor?.chain().focus().setParagraph().run();
+              } else {
+                editor
+                  ?.chain()
+                  .focus()
+                  .toggleHeading({ level: value as Level })
+                  .run();
+              }
+            }}
+            className={cn(
+              "px-2 py-1.5 rounded-sm text-sm cursor-pointer",
+              ((value === 0 && !editor?.isActive("heading")) ||
+                editor?.isActive("heading", { level: value })) &&
+                "bg-neutral-200/80",
+            )}
+          >
+            {label}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+};
+// Font Family 
 const FontFamilyButton = () => {
   const { editor } = useEditorStore();
   const fonts = [
@@ -42,6 +131,7 @@ const FontFamilyButton = () => {
     { label: "Cursive", value: "Cursive" },
     { label: "Comic Sans MS", value: "Comic Sans MS, Comic Sans" },
     { label: "Exo 2", value: "Exo2" },
+    { label: "Verdana", value: "Verdana"}
   ];
 
   return (
@@ -74,7 +164,7 @@ const FontFamilyButton = () => {
   );
 };
 
-// ─── Highlight presets ────────────────────────────────────────────────────────
+// Highlight presets 
 const HIGHLIGHT_PRESETS = [
   { label: "Yellow", value: "#FFF176", textColor: "#7A6B00" },
   { label: "Green", value: "#B9F6CA", textColor: "#1B5E20" },
@@ -84,7 +174,7 @@ const HIGHLIGHT_PRESETS = [
   { label: "Lavender", value: "#CE93D8", textColor: "#4A148C" },
 ];
 
-// ─── Toolbar button ───────────────────────────────────────────────────────────
+// Toolbar button
 interface ToolbarButtonProps {
   onClick?: () => void;
   isActive?: boolean;
@@ -107,7 +197,7 @@ const ToolbarButton = ({
   </button>
 );
 
-// ─── Pen cursor ───────────────────────────────────────────────────────────────
+// Pen cursor
 const HIGHLIGHTER_CURSOR = (color: string): string => {
   const dark = color + "CC";
   const nib = color + "99";
@@ -115,7 +205,7 @@ const HIGHLIGHTER_CURSOR = (color: string): string => {
   return `url("data:image/svg+xml,${encodeURIComponent(svg)}") 14 34, crosshair`;
 };
 
-// ─── Highlight button ─────────────────────────────────────────────────────────
+// Highlight button
 const HighlightButton = () => {
   const { editor, highlightColor, setHighlightColor } = useEditorStore();
   const [open, setOpen] = useState(false);
@@ -286,7 +376,7 @@ const HighlightButton = () => {
   );
 };
 
-// ─── Toolbar ──────────────────────────────────────────────────────────────────
+// Toolbar
 export const Toolbar = () => {
   const { editor } = useEditorStore();
 
@@ -374,14 +464,13 @@ export const Toolbar = () => {
       <Separator orientation="vertical" className="h-6 bg-neutral-300 mx-0.5" />
 
       {/* TODO: Font size */}
-      {/* TODO: Heading */}
+      {<HeadingLevelButton/>}
 
       {/* Format */}
       {formatSection.map((item) => (
         <ToolbarButton key={item.label} {...item} />
       ))}
 
-      {/* Highlight */}
       <HighlightButton />
 
       {/* TODO: Text color */}
