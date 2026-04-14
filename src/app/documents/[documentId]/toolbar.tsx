@@ -13,6 +13,7 @@ import {
   type LucideIcon,
   MessageSquarePlusIcon,
   ListTodoIcon,
+  RemoveFormattingIcon,
 } from "lucide-react";
 import { ColorResult, SketchPicker}  from "react-color";
 import { type Level } from "@tiptap/extension-heading";
@@ -31,6 +32,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+
+// Link Button
 
 // Text Color Button
 const TextColorButton = () => {
@@ -586,6 +589,11 @@ export const Toolbar = () => {
       onClick: () => editor?.chain().focus().toggleTaskList().run(),
       isActive: editor?.isActive("taskList") ?? false,
     },
+    {
+      label: "Remove Formatting",
+      icon: RemoveFormattingIcon,
+      onClick: () => editor?.chain().focus().unsetAllMarks().run(),
+    }
   ];
 
   return (
