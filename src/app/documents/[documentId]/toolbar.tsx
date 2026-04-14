@@ -14,6 +14,7 @@ import {
   MessageSquarePlusIcon,
   ListTodoIcon,
 } from "lucide-react";
+import { ColorResult, CirclePicker } from "react-color";
 import { type Level } from "@tiptap/extension-heading";
 import { cn } from "@/lib/utils";
 import { useEditorStore } from "@/store/use-editor-store";
@@ -31,6 +32,124 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
+// Text Color Button
+const TextColorButton = () => {
+  const { editor } = useEditorStore();
+  const value = editor?.getAttributes("textStyle").color || "#000000";
+
+  const onChange = (color: ColorResult) => {
+    editor?.chain().focus().setColor(color.hex).run();
+  };
+
+  const colors = [
+  "#000000", "#434343", "#666666", "#999999",
+  "#b7b7b7", "#cccccc", "#d9d9d9", "#ffffff",
+  "#ff0000", "#ff4500", "#ff9900", "#ffff00",
+  "#00ff00", "#00ffff", "#4a90d9", "#9900ff",
+  "#f4cccc", "#fce5cd", "#fff2cc", "#d9ead3",
+  "#d0e0e3", "#cfe2f3", "#d9d2e9", "#ead1dc",
+  "#ea9999", "#f9cb9c", "#ffe599", "#b6d7a8",
+  "#a2c4c9", "#9fc5e8", "#b4a7d6", "#c27ba0",
+];
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button className="h-7 min-w-7 shrink-0 flex flex-col items-center justify-center gap-y-0.5 rounded-sm hover:bg-neutral-200/80 px-1.5 overflow-hidden text-sm transition-colors duration-150">
+          <span
+            className="text-xs font-bold leading-none"
+            style={{ color: value }}
+          >
+            A
+          </span>
+          <div
+            className="h-0.75 w-4 rounded-full transition-colors duration-200"
+            style={{ backgroundColor: value }}
+          />
+        </button>
+      </DropdownMenuTrigger>
+
+      <DropdownMenuContent
+        className="p-3 w-55 shadow-lg rounded-xl border border-neutral-200 bg-white"
+        sideOffset={6}
+      >
+        {/* Current color preview */}
+        <div className="flex items-center gap-2 mb-3 pb-2.5 border-b border-neutral-100">
+          <div
+            className="h-6 w-6 rounded-md border border-neutral-200 shadow-sm shrink-0"
+            style={{ backgroundColor: value }}
+          />
+          <span className="text-xs text-neutral-500 font-medium uppercase tracking-wide">
+            {value}
+          </span>
+        </div>
+
+        {/* Color grid */}
+        <div className="grid grid-cols-8 gap-1 mb-3">
+          {colors.map((color) => (
+            <button
+              key={color}
+              onClick={() => editor?.chain().focus().setColor(color).run()}
+              className="group relative h-6 w-6 rounded-md border border-neutral-200 transition-all duration-150 hover:scale-110 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-blue-400"
+              style={{ backgroundColor: color }}
+              title={color}
+            >
+              {/* Active indicator */}
+              {value === color && (
+                <span className="absolute inset-0 flex items-center justify-center">
+                  <svg
+                    className="w-3 h-3 drop-shadow"
+                    viewBox="0 0 12 12"
+                    fill="none"
+                  >
+                    <path
+                      d="M2 6l3 3 5-5"
+                      stroke={
+                        color === "#ffffff" || color === "#ffff00"
+                          ? "#000"
+                          : "#fff"
+                      }
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+
+        {/* Custom color picker */}
+        <div className="border-t border-neutral-100 pt-2.5">
+          <p className="text-[10px] text-neutral-400 font-medium uppercase tracking-wide mb-2">
+            Custom
+          </p>
+          <CirclePicker
+            color={value}
+            onChange={onChange}
+            width="100%"
+            circleSize={20}
+            circleSpacing={6}
+            colors={[
+              "#f44336","#e91e63","#9c27b0","#673ab7",
+              "#3f51b5","#2196f3","#03a9f4","#00bcd4",
+              "#009688","#4caf50","#8bc34a","#cddc39",
+            ]}
+          />
+        </div>
+
+        {/* Reset to default */}
+        <button
+          onClick={() => editor?.chain().focus().unsetColor().run()}
+          className="mt-2.5 w-full text-xs text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100 transition-colors duration-150 rounded-md py-1 text-center"
+        >
+          Reset to default
+        </button>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+};
 // Heading 
 const HeadingLevelButton = () => {
   const { editor } = useEditorStore();
@@ -84,7 +203,9 @@ const HeadingLevelButton = () => {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button className="h-7 min-w-7 shrink-0 flex items-center justify-between rounded-sm hover:bg-neutral-200/80 px-1.5 overflow-hidden text-sm">
+        <button 
+        className="h-7 min-w-7 shrink-0 flex items-center justify-between rounded-sm hover:bg-neutral-200/80 px-1.5 overflow-hidden text-sm"
+        >
           <span className="truncate">{getCurrentHeading()}</span>
           <ChevronDownIcon className="ml-1 size-3.5 shrink-0 text-neutral-500" />
         </button>
@@ -473,7 +594,7 @@ export const Toolbar = () => {
 
       <HighlightButton />
 
-      {/* TODO: Text color */}
+      <TextColorButton/>
 
       <Separator orientation="vertical" className="h-6 bg-neutral-300 mx-0.5" />
 

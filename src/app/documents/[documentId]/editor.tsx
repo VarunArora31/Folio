@@ -13,6 +13,9 @@ import { useEditorStore } from "@/store/use-editor-store";
 import Hightlight from "@tiptap/extension-highlight"
 
 import { FontFamily, TextStyle } from "@tiptap/extension-text-style";
+
+import Color from "@tiptap/extension-color";
+
 export const Editor = () => {
     const { setEditor } = useEditorStore();
     // The useEditor hook initializes the editor and provides various lifecycle callbacks (e.g., onCreate, onUpdate, onFocus, etc.) 
@@ -69,7 +72,8 @@ export const Editor = () => {
         }),
         TaskList,
         FontFamily,
-        TextStyle
+        TextStyle,
+        Color
         ],
         content: `
             <table>
