@@ -14,7 +14,7 @@ import {
   MessageSquarePlusIcon,
   ListTodoIcon,
 } from "lucide-react";
-import { ColorResult, CirclePicker } from "react-color";
+import { ColorResult, SketchPicker}  from "react-color";
 import { type Level } from "@tiptap/extension-heading";
 import { cn } from "@/lib/utils";
 import { useEditorStore } from "@/store/use-editor-store";
@@ -42,15 +42,39 @@ const TextColorButton = () => {
   };
 
   const colors = [
-  "#000000", "#434343", "#666666", "#999999",
-  "#b7b7b7", "#cccccc", "#d9d9d9", "#ffffff",
-  "#ff0000", "#ff4500", "#ff9900", "#ffff00",
-  "#00ff00", "#00ffff", "#4a90d9", "#9900ff",
-  "#f4cccc", "#fce5cd", "#fff2cc", "#d9ead3",
-  "#d0e0e3", "#cfe2f3", "#d9d2e9", "#ead1dc",
-  "#ea9999", "#f9cb9c", "#ffe599", "#b6d7a8",
-  "#a2c4c9", "#9fc5e8", "#b4a7d6", "#c27ba0",
-];
+    "#000000",
+    "#434343",
+    "#666666",
+    "#999999",
+    "#b7b7b7",
+    "#cccccc",
+    "#d9d9d9",
+    "#ffffff",
+    "#ff0000",
+    "#ff4500",
+    "#ff9900",
+    "#ffff00",
+    "#00ff00",
+    "#00ffff",
+    "#4a90d9",
+    "#9900ff",
+    "#f4cccc",
+    "#fce5cd",
+    "#fff2cc",
+    "#d9ead3",
+    "#d0e0e3",
+    "#cfe2f3",
+    "#d9d2e9",
+    "#ead1dc",
+    "#ea9999",
+    "#f9cb9c",
+    "#ffe599",
+    "#b6d7a8",
+    "#a2c4c9",
+    "#9fc5e8",
+    "#b4a7d6",
+    "#c27ba0",
+  ];
 
   return (
     <DropdownMenu>
@@ -70,7 +94,8 @@ const TextColorButton = () => {
       </DropdownMenuTrigger>
 
       <DropdownMenuContent
-        className="p-3 w-55 shadow-lg rounded-xl border border-neutral-200 bg-white"
+        className="p-3 shadow-lg rounded-xl border border-neutral-200 bg-white"
+        style={{ width: "224px" }}  
         sideOffset={6}
       >
         {/* Current color preview */}
@@ -86,15 +111,14 @@ const TextColorButton = () => {
 
         {/* Color grid */}
         <div className="grid grid-cols-8 gap-1 mb-3">
-          {colors.map((color) => (
+          {colors.map((color, index) => (
             <button
-              key={color}
+              key={`${color}-${index}`}
               onClick={() => editor?.chain().focus().setColor(color).run()}
-              className="group relative h-6 w-6 rounded-md border border-neutral-200 transition-all duration-150 hover:scale-110 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-blue-400"
+              className="group relative h-6 w-6 rounded-md border border-neutral-200 transition-all duration-150 hover:scale-110 hover:shadow-md focus:outline-none"
               style={{ backgroundColor: color }}
               title={color}
             >
-              {/* Active indicator */}
               {value === color && (
                 <span className="absolute inset-0 flex items-center justify-center">
                   <svg
@@ -119,26 +143,20 @@ const TextColorButton = () => {
             </button>
           ))}
         </div>
-
-        {/* Custom color picker */}
-        <div className="border-t border-neutral-100 pt-2.5">
-          <p className="text-[10px] text-neutral-400 font-medium uppercase tracking-wide mb-2">
+        {/* Custom color — native input, no third-party picker */}
+        <div className="border-t border-neutral-100 pt-2.5 flex items-center gap-2">
+          <p className="text-[10px] text-neutral-400 font-medium uppercase tracking-wide">
             Custom
           </p>
-          <CirclePicker
-            color={value}
-            onChange={onChange}
-            width="100%"
-            circleSize={20}
-            circleSpacing={6}
-            colors={[
-              "#f44336","#e91e63","#9c27b0","#673ab7",
-              "#3f51b5","#2196f3","#03a9f4","#00bcd4",
-              "#009688","#4caf50","#8bc34a","#cddc39",
-            ]}
+          <input
+            type="color"
+            value={value}
+            onChange={(e) =>
+              editor?.chain().focus().setColor(e.target.value).run()
+            }
+            className="h-7 w-full rounded-md border border-neutral-200 cursor-pointer bg-transparent"
           />
         </div>
-
         {/* Reset to default */}
         <button
           onClick={() => editor?.chain().focus().unsetColor().run()}
@@ -591,9 +609,9 @@ export const Toolbar = () => {
       {formatSection.map((item) => (
         <ToolbarButton key={item.label} {...item} />
       ))}
-
+      {/* Highlighter */}
       <HighlightButton />
-
+      {/* Text Color */}
       <TextColorButton/>
 
       <Separator orientation="vertical" className="h-6 bg-neutral-300 mx-0.5" />
