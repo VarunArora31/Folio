@@ -14,6 +14,8 @@ import {
   MessageSquarePlusIcon,
   ListTodoIcon,
   RemoveFormattingIcon,
+  Trash2Icon,
+  Link2Icon
 } from "lucide-react";
 import { ColorResult, SketchPicker}  from "react-color";
 import { type Level } from "@tiptap/extension-heading";
@@ -32,8 +34,179 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { ImageIcon, UploadIcon, SearchIcon } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { useRef} from "react";
 
 // Link Button
+const LinkButton = () => {
+  const { editor } = useEditorStore();
+  const [value, setValue] = useState("");
+
+  const onChange = (href: string) => {
+    // Ensure the URL has a protocol so it doesn't resolve as relative path
+    const url =
+      href.startsWith("http://") || href.startsWith("https://")
+        ? href
+        : `https://${href}`;
+
+    editor
+      ?.chain()
+      .focus()
+      .extendMarkRange("link")
+      .setLink({ href: url })
+      .run();
+    setValue("");
+  };
+
+  const handleRemove = () => {
+    editor?.chain().focus().extendMarkRange("link").unsetLink().run();
+    setValue("");
+  };
+
+  return (
+    <DropdownMenu
+      onOpenChange={(open) => {
+        if (open) {
+          setValue(editor?.getAttributes("link").href || "");
+        }
+      }}
+    >
+      <DropdownMenuTrigger asChild>
+        <button className="h-7 min-w-7 shrink-0 flex items-center justify-center rounded-sm hover:bg-neutral-200/80 px-1.5 overflow-hidden text-sm">
+          <Link2Icon className="size-4" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent className="p-2.5 flex items-center gap-x-2 w-full">
+        <input
+          placeholder="https://example.com"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              onChange(value);
+            }
+          }}
+          className="h-8 flex-1 rounded-sm border border-neutral-300 bg-white px-2 text-sm outline-none focus:ring-1 focus:ring-neutral-400 placeholder:text-neutral-400 w-55"
+        />
+        {editor?.isActive("link") && (
+          <button
+            onClick={handleRemove}
+            className="h-8 w-8 shrink-0 flex items-center justify-center rounded-sm hover:bg-red-100 text-red-500 transition-colors"
+            title="Remove link"
+          >
+            <Trash2Icon className="size-4" />
+          </button>
+        )}
+        <button
+          onClick={() => onChange(value)}
+          disabled={!value}
+          className="h-8 px-3 shrink-0 rounded-sm bg-neutral-800 text-white text-sm hover:bg-neutral-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+        >
+          Apply
+        </button>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+};
+
+// Image Button
+const ImageButton = () => {
+  const { editor } = useEditorStore();
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [imageUrl, setImageUrl] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const onChange = (src: string) => {
+    editor?.chain().focus().setImage({ src }).run();
+  };
+
+  const onUpload = () => {
+    inputRef.current?.click();
+  };
+
+  const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const url = URL.createObjectURL(file);
+      onChange(url);
+    }
+  };
+
+  const handleImageUrlSubmit = () => {
+    if (imageUrl) {
+      onChange(imageUrl);
+      setImageUrl("");
+      setIsDialogOpen(false);
+    }
+  };
+
+  return (
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button className="h-7 min-w-7 shrink-0 flex items-center justify-center rounded-sm hover:bg-neutral-200/80 px-1.5 overflow-hidden text-sm">
+            <ImageIcon className="size-4" />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent>
+          <DropdownMenuItem onClick={onUpload}>
+            <UploadIcon className="size-4 mr-2" />
+            Upload from computer
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setIsDialogOpen(true)}>
+            <SearchIcon className="size-4 mr-2" />
+            Paste image URL
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      {/* Hidden file input */}
+      <input
+        type="file"
+        accept="image/*"
+        ref={inputRef}
+        onChange={onFileChange}
+        className="hidden"
+      />
+
+      {/* URL Dialog */}
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent aria-describedby={undefined}>
+          <DialogHeader>
+            <DialogTitle>Insert Image URL</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-y-4">
+            <input
+              placeholder="https://example.com/image.png"
+              value={imageUrl}
+              onChange={(e) => setImageUrl(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleImageUrlSubmit();
+              }}
+              className="h-8 w-full rounded-sm border border-neutral-300 bg-white px-2 text-sm outline-none focus:ring-1 focus:ring-neutral-400 placeholder:text-neutral-400"
+            />
+            <DialogFooter>
+              <button
+                onClick={handleImageUrlSubmit}
+                disabled={!imageUrl}
+                className="h-8 px-4 rounded-sm bg-neutral-800 text-white text-sm hover:bg-neutral-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                Insert
+              </button>
+            </DialogFooter>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+};
 
 // Text Color Button
 const TextColorButton = () => {
@@ -626,7 +799,9 @@ export const Toolbar = () => {
 
       {/* TODO: Text alignment */}
       {/* TODO: Link */}
+      <LinkButton/>
       {/* TODO: Image */}
+      <ImageButton/>
       {/* TODO: Line height */}
       {/* TODO: List */}
 
