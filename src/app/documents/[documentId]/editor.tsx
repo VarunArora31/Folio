@@ -76,11 +76,11 @@ export const Editor = () => {
         FontFamily,
         TextStyle,
         Color,
-        Link.configure({
-          openOnClick: false, // keep false
-          autolink: true,
-          defaultProtocol: "https",
-        }),
+        // Link.configure({
+        //   openOnClick: false, // keep false
+        //   autolink: true,
+        //   defaultProtocol: "https",
+        // }),
       ],
       content: `
             <table>

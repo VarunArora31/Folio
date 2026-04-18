@@ -79,7 +79,10 @@ const LinkButton = () => {
       }}
     >
       <DropdownMenuTrigger asChild>
-        <button className="h-7 min-w-7 shrink-0 flex items-center justify-center rounded-sm hover:bg-neutral-200/80 px-1.5 overflow-hidden text-sm">
+        <button
+          onMouseDown={(e) => e.preventDefault()}
+          className="h-7 min-w-7 shrink-0 flex items-center justify-center rounded-sm hover:bg-neutral-200/80 px-1.5 overflow-hidden text-sm"
+        >
           <Link2Icon className="size-4" />
         </button>
       </DropdownMenuTrigger>
@@ -151,7 +154,10 @@ const ImageButton = () => {
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <button className="h-7 min-w-7 shrink-0 flex items-center justify-center rounded-sm hover:bg-neutral-200/80 px-1.5 overflow-hidden text-sm">
+          <button
+            onMouseDown={(e) => e.preventDefault()}
+            className="h-7 min-w-7 shrink-0 flex items-center justify-center rounded-sm hover:bg-neutral-200/80 px-1.5 overflow-hidden text-sm"
+          >
             <ImageIcon className="size-4" />
           </button>
         </DropdownMenuTrigger>
@@ -255,7 +261,9 @@ const TextColorButton = () => {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button className="h-7 min-w-7 shrink-0 flex flex-col items-center justify-center gap-y-0.5 rounded-sm hover:bg-neutral-200/80 px-1.5 overflow-hidden text-sm transition-colors duration-150">
+        <button 
+          onMouseDown={(e) => e.preventDefault()}
+          className="h-7 min-w-7 shrink-0 flex flex-col items-center justify-center gap-y-0.5 rounded-sm hover:bg-neutral-200/80 px-1.5 overflow-hidden text-sm transition-colors duration-150">
           <span
             className="text-xs font-bold leading-none"
             style={{ color: value }}
@@ -397,7 +405,8 @@ const HeadingLevelButton = () => {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button 
+        <button
+        onMouseDown={(e) => e.preventDefault()} 
         className="h-7 min-w-7 shrink-0 flex items-center justify-between rounded-sm hover:bg-neutral-200/80 px-1.5 overflow-hidden text-sm"
         >
           <span className="truncate">{getCurrentHeading()}</span>
@@ -452,7 +461,9 @@ const FontFamilyButton = () => {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button className="h-7 w-32 shrink-0 flex items-center justify-between rounded-sm hover:bg-neutral-200/80 px-1.5 overflow-hidden text-sm">
+        <button 
+        onMouseDown={(e) => e.preventDefault()}
+        className="h-7 w-32 shrink-0 flex items-center justify-between rounded-sm hover:bg-neutral-200/80 px-1.5 overflow-hidden text-sm">
           <span className="truncate">
             {editor?.getAttributes("textStyle").fontFamily || "Times New Roman"}
           </span>
@@ -502,6 +513,7 @@ const ToolbarButton = ({
   icon: Icon,
 }: ToolbarButtonProps) => (
   <button
+    onMouseDown={(e) => e.preventDefault()}
     onClick={onClick}
     className={cn(
       "text-sm h-7 min-w-7 flex items-center justify-center rounded-sm hover:bg-neutral-200/80 transition-colors",
@@ -607,6 +619,7 @@ const HighlightButton = () => {
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <button
+            onMouseDown={(e) => e.preventDefault()}
             className="h-7 w-4 flex items-center justify-center rounded-sm hover:bg-neutral-200/80 transition-colors"
             title="Choose highlight color"
           >
@@ -776,12 +789,12 @@ export const Toolbar = () => {
         <ToolbarButton key={item.label} {...item} />
       ))}
 
-      <Separator orientation="vertical" className="h-6 bg-neutral-300 mx-0.5" />
+      <Separator orientation="vertical" className="h-6 bg-neutral-300 w-px mx-1" />
 
       {/* Font family */}
       <FontFamilyButton />
 
-      <Separator orientation="vertical" className="h-6 bg-neutral-300 mx-0.5" />
+      <Separator orientation="vertical" className="h-6 bg-neutral-300 w-px mx-1" />
 
       {/* TODO: Font size */}
       {<HeadingLevelButton/>}
@@ -795,7 +808,7 @@ export const Toolbar = () => {
       {/* Text Color */}
       <TextColorButton/>
 
-      <Separator orientation="vertical" className="h-6 bg-neutral-300 mx-0.5" />
+      <Separator orientation="vertical" className="h-6 bg-neutral-300 w-px mx-1" />
 
       {/* TODO: Text alignment */}
       {/* TODO: Link */}
