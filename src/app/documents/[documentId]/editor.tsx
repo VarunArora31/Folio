@@ -2,7 +2,7 @@
 // So, convert them into client component, as it uses the useEditor hook from @tiptap/react, 
 // which is a React hook that manages the state of the editor.
 "use client"; // Client Component
-import { useEditor, EditorContent } from "@tiptap/react";
+import { useEditor, EditorContent, extensions } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import TaskItem from "@tiptap/extension-task-item";
 import TaskList from "@tiptap/extension-task-list";
@@ -16,11 +16,29 @@ import { TextStyle } from "@tiptap/extension-text-style";
 import { FontFamily } from "@tiptap/extension-font-family";
 import Color from "@tiptap/extension-color";
 import Link from "@tiptap/extension-link";
+import TextAlign from "@tiptap/extension-text-align";
+import { ImageAlignMenu } from "@/components/ui/image-align-menu";
 
+const CustomImage = Image.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      style: {
+        default: "display: block; margin-left: 0; margin-right: auto;",
+        parseHTML: (el) => el.getAttribute("style") || "",
+        renderHTML: (attrs) => ({ style: attrs.style || "" }),
+      },
+    };
+  },
+});
 export const Editor = () => {
     const { setEditor } = useEditorStore();
     // The useEditor hook initializes the editor and provides various lifecycle callbacks (e.g., onCreate, onUpdate, onFocus, etc.) 
     // that allow you to manage the editor's state and behavior.
+    // In editor.tsx
+
+// Then use CustomImage instead of Image in extensions:
+
     const editor = useEditor({
       onCreate: ({ editor }) => {
         setEditor(editor);
@@ -61,13 +79,9 @@ export const Editor = () => {
         TableKit.configure({
           table: { resizable: true },
         }),
-        Image.configure({
-          inline: true,
-          resize: {
-            enabled: true,
-            alwaysPreserveAspectRatio: true,
-          },
-          allowBase64: true
+        CustomImage.configure({
+          resize: { enabled: true, alwaysPreserveAspectRatio: true },
+          allowBase64: true,
         }),
         TaskItem.configure({
           nested: true, // Allow nesting of task items within other task items, enabling the creation of sub-tasks.
@@ -76,11 +90,6 @@ export const Editor = () => {
         FontFamily,
         TextStyle,
         Color,
-        // Link.configure({
-        //   openOnClick: false, // keep false
-        //   autolink: true,
-        //   defaultProtocol: "https",
-        // }),
       ],
       content: `
             <table>
@@ -104,10 +113,9 @@ export const Editor = () => {
 
     return (
       <div className="size-full overflow-x-auto bg-[#FAFBFD] px-4 print:px-0 print:bg-white print:overflow-visible">
-        <div className="min-w-max flex justify-center w-204 py-4 print:py-0 mx-auto print:w-full print:min-w-0">
-          <EditorContent
-            editor={editor}
-          />
+        <div className="relative min-w-max flex justify-center w-204 py-4 print:py-0 mx-auto print:w-full print:min-w-0">
+          <ImageAlignMenu />
+          <EditorContent editor={editor} />
         </div>
       </div>
     );
