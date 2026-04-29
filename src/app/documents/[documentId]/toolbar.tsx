@@ -34,7 +34,18 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { ImageIcon, UploadIcon, SearchIcon } from "lucide-react";
+import { 
+  ImageIcon, 
+  UploadIcon, 
+  SearchIcon,
+  AlignLeftIcon,
+  AlignCenterIcon,
+  AlignRightIcon,
+  AlignJustifyIcon,
+  ListIcon,
+  ListOrderedIcon,
+  ListCollapseIcon
+} from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -43,6 +54,193 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useRef} from "react";
+
+const ImageAlignButton = () => {
+  const { editor } = useEditorStore();
+
+  if (!editor?.isActive("image")) return null;
+
+  const alignments = [
+    {
+      label: "Left",
+      value: "left",
+      icon: AlignLeftIcon,
+      style: "display: block; margin-left: 0; margin-right: auto;",
+    },
+    {
+      label: "Center",
+      value: "center",
+      icon: AlignCenterIcon,
+      style: "display: block; margin-left: auto; margin-right: auto;",
+    },
+    {
+      label: "Right",
+      value: "right",
+      icon: AlignRightIcon,
+      style: "display: block; margin-left: auto; margin-right: 0;",
+    },
+  ];
+
+  const getCurrentAlign = () => {
+    const style = editor.getAttributes("image").style || "";
+    if (style.includes("margin-right: 0")) return "right";
+    if (
+      style.includes("margin-left: auto") &&
+      style.includes("margin-right: auto")
+    )
+      return "center";
+    return "left";
+  };
+
+  return (
+    <div className="flex items-center gap-x-0.5">
+      {alignments.map(({ label, value, icon: Icon, style }) => (
+        <button
+          key={value}
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => {
+            editor.chain().focus().updateAttributes("image", { style }).run();
+          }}
+          title={`Align image ${label}`}
+          className={cn(
+            "h-7 min-w-7 flex items-center justify-center rounded-sm hover:bg-neutral-200/80 transition-colors",
+            getCurrentAlign() === value && "bg-neutral-200/80",
+          )}
+        >
+          <Icon className="size-4" />
+        </button>
+      ))}
+    </div>
+  );
+};
+// Align Button
+const AlignButton = () => {
+  const { editor } = useEditorStore();
+
+  const alignments = [
+    { label: "Align Left", value: "left", icon: AlignLeftIcon },
+    { label: "Align Center", value: "center", icon: AlignCenterIcon },
+    { label: "Align Right", value: "right", icon: AlignRightIcon },
+    { label: "Align Justify", value: "justify", icon: AlignJustifyIcon },
+  ];
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          onMouseDown={(e) => e.preventDefault()}
+          className="h-7 min-w-7 shrink-0 flex flex-col items-center justify-center rounded-sm hover:bg-neutral-200/80 px-1.5 overflow-hidden text-sm"
+        >
+          <AlignLeftIcon className="size-4" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent className="p-1 flex flex-col gap-y-1">
+        {alignments.map(({ label, value, icon: Icon }) => (
+          <button
+            key={value}
+            onClick={() => editor?.chain().focus().setTextAlign(value).run()}
+            className={cn(
+              "flex items-center gap-x-2 px-2 py-1 rounded-sm hover:bg-neutral-200/80",
+              editor?.isActive({ textAlign: value }) && "bg-neutral-200/80"
+            )}
+          >
+            <Icon className="size-4" />
+            <span className="text-sm">{label}</span>
+          </button>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+};
+
+// Line Height Button
+const LineHeightButton = () => {
+  const { editor } = useEditorStore();
+
+  const lineHeights = [
+    { label: "Default", value: "normal" },
+    { label: "Single", value: "1" },
+    { label: "1.15", value: "1.15" },
+    { label: "1.5", value: "1.5" },
+    { label: "Double", value: "2" },
+  ];
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          onMouseDown={(e) => e.preventDefault()}
+          className="h-7 min-w-7 shrink-0 flex flex-col items-center justify-center rounded-sm hover:bg-neutral-200/80 px-1.5 overflow-hidden text-sm"
+        >
+          <ListCollapseIcon className="size-4" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent className="p-1 flex flex-col gap-y-1">
+        {lineHeights.map(({ label, value }) => (
+          <button
+            key={value}
+            onClick={() => editor?.chain().focus().setLineHeight(value).run()}
+            className={cn(
+              "flex items-center gap-x-2 px-2 py-1 rounded-sm hover:bg-neutral-200/80",
+              editor?.getAttributes("paragraph").lineHeight === value &&
+                "bg-neutral-200/80"
+            )}
+          >
+            <span className="text-sm">{label}</span>
+          </button>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+};
+
+// List Button
+const ListButton = () => {
+  const { editor } = useEditorStore();
+
+  const lists = [
+    {
+      label: "Bullet List",
+      icon: ListIcon,
+      isActive: () => editor?.isActive("bulletList"),
+      onClick: () => editor?.chain().focus().toggleBulletList().run(),
+    },
+    {
+      label: "Numbered List",
+      icon: ListOrderedIcon,
+      isActive: () => editor?.isActive("orderedList"),
+      onClick: () => editor?.chain().focus().toggleOrderedList().run(),
+    }
+  ];
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          onMouseDown={(e) => e.preventDefault()}
+          className="h-7 min-w-7 shrink-0 flex flex-col items-center justify-center rounded-sm hover:bg-neutral-200/80 px-1.5 overflow-hidden text-sm"
+        >
+          <ListIcon className="size-4" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent className="p-1 flex flex-col gap-y-1">
+        {lists.map(({ label, icon: Icon, onClick, isActive }) => (
+          <button
+            key={label}
+            onClick={onClick}
+            className={cn(
+              "flex items-center gap-x-2 px-2 py-1 rounded-sm hover:bg-neutral-200/80",
+              isActive() && "bg-neutral-200/80"
+            )}
+          >
+            <Icon className="size-4" />
+            <span className="text-sm">{label}</span>
+          </button>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+};
 
 // Link Button
 const LinkButton = () => {
@@ -138,15 +336,25 @@ const ImageButton = () => {
     const file = e.target.files?.[0];
     if (file) {
       const url = URL.createObjectURL(file);
-      onChange(url);
+      onChange(url);``
     }
   };
 
   const handleImageUrlSubmit = () => {
     if (imageUrl) {
-      onChange(imageUrl);
-      setImageUrl("");
-      setIsDialogOpen(false);
+      // Test if image loads before inserting
+      const img = new window.Image();
+      img.onload = () => {
+        onChange(imageUrl);
+        setImageUrl("");
+        setIsDialogOpen(false);
+      };
+      img.onerror = () => {
+        alert(
+          "Could not load image. The URL may be blocked or invalid. Try a direct image link from Wikipedia, Unsplash, or Imgur.",
+        );
+      };
+      img.src = imageUrl;
     }
   };
 
@@ -704,6 +912,100 @@ const HighlightButton = () => {
   );
 };
 
+// font size
+const FontSizeButton = () => {
+  const { editor } = useEditorStore();
+  const currentSize =
+    editor?.getAttributes("textStyle").fontSize?.replace("px", "") || "16";
+
+  const [inputValue, setInputValue] = useState(currentSize);
+  const [isFocused, setIsFocused] = useState(false);
+
+  // Sync input with editor selection changes (only when not typing)
+  useEffect(() => {
+    if (!isFocused) {
+      setInputValue(currentSize);
+    }
+  }, [currentSize, isFocused]);
+
+  const applySize = (val: string) => {
+    const num = parseInt(val);
+    if (!isNaN(num) && num > 0 && num < 400) {
+      editor?.chain().focus().setFontSize(`${num}px`).run();
+    }
+  };
+
+  const increment = () => {
+    const next = String(parseInt(currentSize) + 1);
+    setInputValue(next);
+    applySize(next);
+  };
+
+  const decrement = () => {
+    const next = String(Math.max(1, parseInt(currentSize) - 1));
+    setInputValue(next);
+    applySize(next);
+  };
+
+  return (
+    <div className="flex items-center gap-x-1">
+      <button
+        onMouseDown={(e) => e.preventDefault()}
+        onClick={decrement}
+        className="h-7 w-6 flex items-center justify-center rounded-sm hover:bg-neutral-300/80 text-neutral-600 text-base font-medium transition-colors"
+      >
+        −
+      </button>
+
+      <input
+        type="text"
+        value={isFocused ? inputValue : currentSize}
+        onFocus={() => {
+          setIsFocused(true);
+          setInputValue(currentSize);
+        }}
+        onChange={(e) => {
+          setInputValue(e.target.value);
+          // Apply immediately as user types if it's a valid number
+          const num = parseInt(e.target.value);
+          if (!isNaN(num) && num > 0 && num < 400) {
+            editor?.chain().setFontSize(`${num}px`).run(); // no focus() = no cursor jump
+          }
+        }}
+        onBlur={() => {
+          setIsFocused(false);
+          applySize(inputValue);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            applySize(inputValue);
+            setIsFocused(false);
+            editor?.commands.focus();
+          }
+          if (e.key === "ArrowUp") {
+            e.preventDefault();
+            increment();
+          }
+          if (e.key === "ArrowDown") {
+            e.preventDefault();
+            decrement();
+          }
+        }}
+        className="h-7 w-12 text-center text-sm border border-neutral-300 rounded-md
+          bg-white focus:outline-none focus:ring-2 focus:ring-neutral-400 focus:border-transparent
+          hover:border-neutral-400 transition-colors font-medium text-neutral-700"
+      />
+
+      <button
+        onMouseDown={(e) => e.preventDefault()}
+        onClick={increment}
+        className="h-7 w-6 flex items-center justify-center rounded-sm hover:bg-neutral-300/80 text-neutral-600 text-base font-medium transition-colors"
+      >
+        +
+      </button>
+    </div>
+  );
+};
 // Toolbar
 export const Toolbar = () => {
   const { editor } = useEditorStore();
@@ -789,15 +1091,17 @@ export const Toolbar = () => {
         <ToolbarButton key={item.label} {...item} />
       ))}
 
-      <Separator orientation="vertical" className="h-6 bg-neutral-300 w-px mx-1" />
+      <div className="h-6 border-l border-neutral-300 mx-1" />
 
-      {/* Font family */}
+      <FontSizeButton />
+
+      <div className="h-6 border-l border-neutral-300 mx-1" />
+
       <FontFamilyButton />
 
-      <Separator orientation="vertical" className="h-6 bg-neutral-300 w-px mx-1" />
+      <div className="h-6 border-l border-neutral-300 mx-1" />
 
-      {/* TODO: Font size */}
-      {<HeadingLevelButton/>}
+      {<HeadingLevelButton />}
 
       {/* Format */}
       {formatSection.map((item) => (
@@ -806,17 +1110,22 @@ export const Toolbar = () => {
       {/* Highlighter */}
       <HighlightButton />
       {/* Text Color */}
-      <TextColorButton/>
+      <TextColorButton />
 
-      <Separator orientation="vertical" className="h-6 bg-neutral-300 w-px mx-1" />
+      <div className="h-6 border-l border-neutral-300 mx-1" />
 
-      {/* TODO: Text alignment */}
-      {/* TODO: Link */}
-      <LinkButton/>
-      {/* TODO: Image */}
-      <ImageButton/>
-      {/* TODO: Line height */}
-      {/* TODO: List */}
+      <LinkButton />
+      <ImageButton />
+      <AlignButton />
+      <LineHeightButton />
+      <ListButton />
+
+      {editor?.isActive("image") && (
+        <>
+          <div className="h-6 border-l border-neutral-300 mx-1" />
+          <ImageAlignButton />
+        </>
+      )}
 
       {/* Extra */}
       {extraSection.map((item) => (
