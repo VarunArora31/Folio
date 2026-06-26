@@ -79,7 +79,7 @@ const LineHeight = Extension.create({
   },
 });
 export const Editor = () => {
-    const { setEditor } = useEditorStore();
+    const { setEditor, leftMargin, rightMargin } = useEditorStore();
     // The useEditor hook initializes the editor and provides various lifecycle callbacks (e.g., onCreate, onUpdate, onFocus, etc.) 
     // that allow you to manage the editor's state and behavior.
     // In editor.tsx
@@ -113,9 +113,9 @@ export const Editor = () => {
       },
       editorProps: {
         attributes: {
-          style: "padding-left: 55px; padding-right: 55px",
+          style: `padding-left: ${leftMargin}px; padding-right: ${rightMargin}px`,
           class:
-            "tiptap focus:outline-none print:border-0 bg-white border border-[#C7C7C7] flex flex-col min-h-[1054px] w-[816px] pt-10 pr-14",
+            "tiptap focus:outline-none print:border-0 bg-white border border-[#C7C7C7] flex flex-col min-h-[1054px] w-[816px] pt-10",
         },
       },
       extensions: [
