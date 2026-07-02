@@ -13,6 +13,7 @@ import {
   MenubarSubTrigger,
   MenubarSubContent,
 } from "@/components/ui/menubar";
+import { UserButton } from "@clerk/nextjs";
 import { useEditorStore } from "@/store/use-editor-store";
 
 // ── Minimal inline SVG icons (no lucide) ─────────────────────────────────────
@@ -84,13 +85,14 @@ const DocumentTitle = () => {
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === "Escape") commit();
       }}
-      className="text-[15px] font-medium text-[#202124] bg-transparent border-b-2 border-[#4285F4] outline-none px-0.5 min-w-0 w-auto max-w-xs"
-      style={{ width: `${Math.max(title.length, 8)}ch` }}
+      className="text-[14px] font-medium tracking-[-0.1px] bg-transparent border-b-2 border-[#1a73e8] outline-none px-0.5 min-w-0 w-auto max-w-xs"
+      style={{ fontFamily: "var(--font-inter, Inter, sans-serif)", color: "#202124", width: `${Math.max(title.length, 8)}ch` }}
     />
   ) : (
     <span
       onClick={() => setEditing(true)}
-      className="text-[15px] font-medium text-[#202124] cursor-text hover:bg-neutral-100 rounded px-1 py-0.5 transition-colors"
+      className="text-[14px] font-medium tracking-[-0.1px] cursor-text hover:bg-neutral-100 rounded px-1 py-0.5 transition-colors"
+      style={{ fontFamily: "var(--font-inter, Inter, sans-serif)", color: "#202124" }}
     >
       {title}
     </span>
@@ -106,7 +108,7 @@ const DocumentMenubar = () => {
     <Menubar className="border-none bg-transparent shadow-none h-auto p-0 gap-0">
       {/* File */}
       <MenubarMenu>
-        <MenubarTrigger className="text-[13px] text-[#3c4043] font-normal px-2 py-0.5 rounded hover:bg-neutral-100 data-[state=open]:bg-neutral-100">
+        <MenubarTrigger className="text-[13px] font-normal tracking-[-0.1px] text-[#3c4043] px-2 py-0.5 rounded hover:bg-neutral-100 data-[state=open]:bg-neutral-100">
           File
         </MenubarTrigger>
         <MenubarContent className="min-w-48">
@@ -132,7 +134,7 @@ const DocumentMenubar = () => {
 
       {/* Edit */}
       <MenubarMenu>
-        <MenubarTrigger className="text-[13px] text-[#3c4043] font-normal px-2 py-0.5 rounded hover:bg-neutral-100 data-[state=open]:bg-neutral-100">
+        <MenubarTrigger className="text-[13px] font-normal tracking-[-0.1px] text-[#3c4043] px-2 py-0.5 rounded hover:bg-neutral-100 data-[state=open]:bg-neutral-100">
           Edit
         </MenubarTrigger>
         <MenubarContent className="min-w-48">
@@ -161,7 +163,7 @@ const DocumentMenubar = () => {
 
       {/* Insert */}
       <MenubarMenu>
-        <MenubarTrigger className="text-[13px] text-[#3c4043] font-normal px-2 py-0.5 rounded hover:bg-neutral-100 data-[state=open]:bg-neutral-100">
+        <MenubarTrigger className="text-[13px] font-normal tracking-[-0.1px] text-[#3c4043] px-2 py-0.5 rounded hover:bg-neutral-100 data-[state=open]:bg-neutral-100">
           Insert
         </MenubarTrigger>
         <MenubarContent className="min-w-48">
@@ -191,7 +193,7 @@ const DocumentMenubar = () => {
 
       {/* Format */}
       <MenubarMenu>
-        <MenubarTrigger className="text-[13px] text-[#3c4043] font-normal px-2 py-0.5 rounded hover:bg-neutral-100 data-[state=open]:bg-neutral-100">
+        <MenubarTrigger className="text-[13px] font-normal tracking-[-0.1px] text-[#3c4043] px-2 py-0.5 rounded hover:bg-neutral-100 data-[state=open]:bg-neutral-100">
           Format
         </MenubarTrigger>
         <MenubarContent className="min-w-48">
@@ -235,20 +237,19 @@ const DocumentMenubar = () => {
 // ── Main Navbar ───────────────────────────────────────────────────────────────
 
 export const Navbar = () => {
-  // Simulate "saved" state — later wire to real save logic
   const [saved] = useState(true);
 
   return (
-    <nav className="flex items-start gap-2 px-3 pt-2 pb-0.5 bg-white select-none print:hidden">
+    <nav className="flex items-start gap-3 px-3 pt-2 pb-0.5 bg-white select-none print:hidden border-b border-[#f1f3f4]">
       {/* Logo */}
-      <div className="flex items-center shrink-0 mt-0.5">
+      <div className="flex items-center shrink-0 mt-1">
         <FolioLogo />
       </div>
 
       {/* Title + menu col */}
       <div className="flex flex-col min-w-0 flex-1">
         {/* Row 1: title + action icons */}
-        <div className="flex items-center gap-1.5 h-8">
+        <div className="flex items-center gap-1 h-8">
           <DocumentTitle />
           <button className="p-1 rounded hover:bg-neutral-100 transition-colors" title="Starred">
             <StarIcon />
@@ -260,9 +261,18 @@ export const Navbar = () => {
         </div>
 
         {/* Row 2: menubar */}
-        <div className="flex items-center -ml-1.5">
+        <div className="flex items-center -ml-2">
           <DocumentMenubar />
         </div>
+      </div>
+
+      {/* User avatar — top right */}
+      <div className="flex items-center mt-1 shrink-0">
+        <UserButton
+          appearance={{
+            elements: { avatarBox: "w-8 h-8" },
+          }}
+        />
       </div>
     </nav>
   );
