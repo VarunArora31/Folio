@@ -44,7 +44,7 @@ const CloudSyncIcon = ({ saved }: { saved: boolean }) => (
     stroke={saved ? "#8e8e93" : "#f5a623"}
     strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"
     className="transition-colors duration-300"
-    title={saved ? "All changes saved" : "Saving…"}
+    aria-label={saved ? "All changes saved" : "Saving…"}
   >
     <path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z" />
     {!saved && <path d="M12 13v4M10 15l2-2 2 2" strokeOpacity="0.7" />}
@@ -133,7 +133,7 @@ function htmlToDocxParagraphs(html: string): Paragraph[] {
 
   const paragraphs: Paragraph[] = [];
 
-  const HEADING_MAP: Record<string, HeadingLevel> = {
+  const HEADING_MAP: Record<string, typeof HeadingLevel[keyof typeof HeadingLevel]> = {
     H1: HeadingLevel.HEADING_1,
     H2: HeadingLevel.HEADING_2,
     H3: HeadingLevel.HEADING_3,
@@ -200,7 +200,7 @@ function htmlToDocxParagraphs(html: string): Paragraph[] {
       });
     } else if (tag === "P" || tag === "DIV") {
       const textAlign = (el as HTMLElement).style?.textAlign;
-      const alignMap: Record<string, AlignmentType> = {
+      const alignMap: Record<string, typeof AlignmentType[keyof typeof AlignmentType]> = {
         center: AlignmentType.CENTER,
         right: AlignmentType.RIGHT,
         justify: AlignmentType.JUSTIFIED,

@@ -49,7 +49,7 @@ export const Ruler = () => {
 
   const [isDraggingLeft, setIsDraggingLeft] = useState(false);
   const [isDraggingRight, setIsDraggingRight] = useState(false);
-  const rulerRef = useRef<HTMLDivElement>(null);
+  const rulerRef = useRef<SVGSVGElement>(null);
 
   // Get left edge of the ruler (page start) in client coords
   const getRulerLeft = () => rulerRef.current?.getBoundingClientRect().left ?? 0;
