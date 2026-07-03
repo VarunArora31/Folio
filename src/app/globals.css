@@ -510,3 +510,74 @@ img {
   box-sizing: border-box;
   position: relative;
 }
+
+/* ── Print styles ────────────────────────────────────────────────────────────
+   Only the white document canvas should appear in print / PDF.
+   Every piece of chrome (navbar, toolbar, ruler, canvas surround, dropdowns,
+   Radix portals, toast notifications) is hidden.
+   ─────────────────────────────────────────────────────────────────────────── */
+@media print {
+  /* 1. Reset page chrome */
+  html, body {
+    background: white !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* 2. Hide ALL UI chrome — nav, toolbar, ruler, canvas surround, menus */
+  nav,
+  header,
+  footer,
+  [data-radix-popper-content-wrapper],   /* Radix dropdowns / menus         */
+  [data-radix-portal],                   /* Radix portals (dialogs, tooltips)*/
+  [role="menu"],
+  [role="menubar"],
+  [role="toolbar"],
+  .print\:hidden,                        /* Tailwind print:hidden utility    */
+  #toolbar-container {
+    display: none !important;
+    visibility: hidden !important;
+  }
+
+  /* 3. Canvas surround — remove dark background, collapse padding */
+  .print-canvas-surround,
+  [class*="bg-\[#38383b\]"],
+  [class*="bg-\[#e8e6e1\]"] {
+    background: white !important;
+    padding: 0 !important;
+  }
+
+  /* 4. The TipTap editor wrapper fills the page */
+  .tiptap {
+    border: none !important;
+    box-shadow: none !important;
+    min-height: auto !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* 5. Page margins — set via @page */
+  @page {
+    size: A4 portrait;
+    margin: 20mm 18mm 20mm 18mm;
+  }
+
+  /* 6. Avoid breaking inside headings, images, tables */
+  h1, h2, h3, h4, h5, h6 {
+    page-break-after: avoid;
+    break-after: avoid;
+  }
+
+  table, figure, img {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  /* 7. Ensure links print in black */
+  a {
+    color: black !important;
+    text-decoration: none !important;
+  }
+}

@@ -6,11 +6,14 @@ interface EditorStore {
   setEditor: (editor: Editor | null) => void;
   highlightColor: string;
   setHighlightColor: (color: string) => void;
-  // Ruler margins (in inches, page width = 8.5in, content = 6.5in)
+  // Ruler margins
   leftMargin: number;
   rightMargin: number;
   setLeftMargin: (margin: number) => void;
   setRightMargin: (margin: number) => void;
+  // Save state — shown in navbar cloud icon
+  isSaved: boolean;
+  setIsSaved: (saved: boolean) => void;
 }
 
 export const useEditorStore = create<EditorStore>((set) => ({
@@ -18,8 +21,10 @@ export const useEditorStore = create<EditorStore>((set) => ({
   setEditor: (editor) => set({ editor }),
   highlightColor: "#FFF176",
   setHighlightColor: (color) => set({ highlightColor: color }),
-  leftMargin: 56,   // px equivalent of ~0.7in at 96dpi
+  leftMargin: 56,
   rightMargin: 56,
   setLeftMargin: (margin) => set({ leftMargin: margin }),
   setRightMargin: (margin) => set({ rightMargin: margin }),
+  isSaved: true,
+  setIsSaved: (saved) => set({ isSaved: saved }),
 }));

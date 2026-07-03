@@ -1085,7 +1085,8 @@ export const Toolbar = () => {
   ];
 
   return (
-    <div className="bg-[#f1f4f9] px-2.5 py-0.5 rounded-[24px] min-h-10 flex items-center gap-x-0.5 overflow-x-auto">
+    <div className="bg-[#f1f4f9] px-1.5 sm:px-2.5 py-0.5 rounded-[24px] min-h-9 sm:min-h-10 flex items-center gap-x-0.5 overflow-x-auto scrollbar-none"
+      style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
       {/* History */}
       {historySection.map((item) => (
         <ToolbarButton key={item.label} {...item} />

@@ -31,7 +31,7 @@ const TriangleHandle = ({
     width="10"
     height="8"
     viewBox="0 0 10 8"
-    fill="#4285F4"
+    fill="#6e6c68"
     aria-label={title}
     style={{ display: "block" }}
   >
@@ -105,26 +105,26 @@ export const Ruler = () => {
 
   return (
     <div
-      className="w-full overflow-x-auto bg-[#FAFBFD] print:hidden"
-      style={{ paddingLeft: `${RULER_MARGINS}px`, paddingRight: `${RULER_MARGINS}px` }}
+      className="w-full overflow-x-auto print:hidden hidden sm:block"
+      style={{ background: "#e8e6e1", paddingLeft: `${RULER_MARGINS}px`, paddingRight: `${RULER_MARGINS}px` }}
     >
       {/* Centered to match editor page width */}
       <div className="mx-auto relative" style={{ width: `${PAGE_WIDTH}px`, height: "24px" }}>
         {/* Ruler background — shaded regions = margins, white region = content */}
         {/* Left margin shade */}
         <div
-          className="absolute top-0 bottom-0 bg-[#e8eaed] border-b border-[#c7c7c7]"
-          style={{ left: 0, width: leftMargin }}
+          className="absolute top-0 bottom-0 border-b"
+          style={{ left: 0, width: leftMargin, background: "#d4d2cd", borderColor: "#c5c3be" }}
         />
         {/* Content area */}
         <div
-          className="absolute top-0 bottom-0 bg-white border-b border-[#c7c7c7]"
-          style={{ left: leftMargin, right: rightMargin }}
+          className="absolute top-0 bottom-0 border-b"
+          style={{ left: leftMargin, right: rightMargin, background: "#f5f4f0", borderColor: "#c5c3be" }}
         />
         {/* Right margin shade */}
         <div
-          className="absolute top-0 bottom-0 bg-[#e8eaed] border-b border-[#c7c7c7]"
-          style={{ right: 0, width: rightMargin }}
+          className="absolute top-0 bottom-0 border-b"
+          style={{ right: 0, width: rightMargin, background: "#d4d2cd", borderColor: "#c5c3be" }}
         />
 
         {/* SVG for tick marks + labels */}
@@ -142,7 +142,7 @@ export const Ruler = () => {
                 y1={major ? 10 : 16}
                 x2={x}
                 y2={24}
-                stroke="#9aa0a6"
+                stroke="#9e9c98"
                 strokeWidth={major ? 1 : 0.7}
               />
               {label && (
@@ -151,7 +151,7 @@ export const Ruler = () => {
                   y={9}
                   textAnchor="middle"
                   fontSize="8"
-                  fill="#9aa0a6"
+                  fill="#9e9c98"
                   fontFamily="Arial, sans-serif"
                 >
                   {label}
@@ -193,8 +193,8 @@ export const Ruler = () => {
 
         {/* Drag guide line */}
         {(isDraggingLeft || isDraggingRight) && (
-          <div className="absolute top-0 bottom-0 w-px bg-[#4285F4] z-20 pointer-events-none"
-            style={{ left: isDraggingLeft ? leftMargin : PAGE_WIDTH - rightMargin }}
+          <div className="absolute top-0 bottom-0 w-px z-20 pointer-events-none"
+            style={{ background: "#48464240", left: isDraggingLeft ? leftMargin : PAGE_WIDTH - rightMargin }}
           />
         )}
       </div>
