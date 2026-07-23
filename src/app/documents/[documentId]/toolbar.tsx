@@ -1007,8 +1007,9 @@ const FontSizeButton = () => {
   );
 };
 // Toolbar
-export const Toolbar = () => {
+export const Toolbar = ({ readOnly = false }: { readOnly?: boolean }) => {
   const { editor } = useEditorStore();
+  if (readOnly) return null;
 
   const historySection = [
     {

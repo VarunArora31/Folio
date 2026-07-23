@@ -511,6 +511,84 @@ img {
   position: relative;
 }
 
+/* ── Page layout ─────────────────────────────────────────────────────────────
+   A4 page simulation inside the continuous TipTap canvas.
+
+   Each "page" is 1122px tall, separated by a 24px gap.
+   The repeating-linear-gradient paints white pages with grey gaps.
+   The tiptap content is transparent so the stripes show through.
+
+   A4 at 96 dpi  = 794 × 1122 px
+   Our canvas     = 816px wide
+   Stripe         = 1122px page + 24px gap = 1146px
+   ─────────────────────────────────────────────────────────────────────────── */
+
+.page-canvas-wrap {
+  --page-h: 1122px;
+  --gap-h:  24px;
+  --stripe: calc(var(--page-h) + var(--gap-h));
+
+  /* page margin inside each white page block */
+  --page-pad-top:    48px;
+  --page-pad-bottom: 48px;
+  --page-pad-x:      0px; /* horizontal padding is handled by leftMargin/rightMargin */
+
+  position: relative;
+  width: 816px;
+
+  /* Paint alternating white-page / grey-gap stripes */
+  background-image: repeating-linear-gradient(
+    to bottom,
+    #ffffff  0px,
+    #ffffff  var(--page-h),
+    #c8c5bf  var(--page-h),
+    #c8c5bf  var(--stripe)
+  );
+
+  /* Subtle shadow so the page stack looks raised */
+  filter: drop-shadow(0 2px 8px rgba(0,0,0,0.18));
+}
+
+/* The tiptap element itself must be transparent so the gradient shows */
+.page-canvas-wrap .tiptap {
+  background: transparent !important;
+  box-shadow: none !important;
+
+  /* 
+    Padding strategy:
+    - padding-top on the FIRST page comes from pt-10 in the class
+    - We add extra top padding equal to page-pad-top so text starts
+      below the top of each page stripe, not flush against the gap line.
+    - We use a background-clip trick: add padding-top that's a multiple
+      of the stripe height so each new page has breathing room at top.
+
+    Simplest correct approach: just pad the whole editor top/bottom,
+    content naturally flows across page boundaries.
+  */
+  padding-top: var(--page-pad-top) !important;
+  padding-bottom: var(--page-pad-bottom) !important;
+}
+
+/* Page gap separator line — a subtle shadow edge at each gap */
+.page-canvas-wrap::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent              0px,
+    transparent              calc(var(--page-h) - 1px),
+    rgba(0,0,0,0.08)         calc(var(--page-h) - 1px),
+    rgba(0,0,0,0.08)         var(--page-h),
+    transparent              var(--page-h),
+    transparent              calc(var(--stripe) - 1px),
+    rgba(0,0,0,0.08)         calc(var(--stripe) - 1px),
+    rgba(0,0,0,0.08)         var(--stripe)
+  );
+  z-index: 1;
+}
+
 /* ── Print styles ────────────────────────────────────────────────────────────
    Only the white document canvas should appear in print / PDF.
    Every piece of chrome (navbar, toolbar, ruler, canvas surround, dropdowns,
@@ -524,30 +602,41 @@ img {
     padding: 0 !important;
   }
 
-  /* 2. Hide ALL UI chrome — nav, toolbar, ruler, canvas surround, menus */
+  /* 2. Hide ALL UI chrome */
   nav,
   header,
   footer,
-  [data-radix-popper-content-wrapper],   /* Radix dropdowns / menus         */
-  [data-radix-portal],                   /* Radix portals (dialogs, tooltips)*/
+  [data-radix-popper-content-wrapper],
+  [data-radix-portal],
   [role="menu"],
   [role="menubar"],
   [role="toolbar"],
-  .print\:hidden,                        /* Tailwind print:hidden utility    */
+  .print\:hidden,
   #toolbar-container {
     display: none !important;
     visibility: hidden !important;
   }
 
-  /* 3. Canvas surround — remove dark background, collapse padding */
-  .print-canvas-surround,
-  [class*="bg-\[#38383b\]"],
-  [class*="bg-\[#e8e6e1\]"] {
-    background: white !important;
-    padding: 0 !important;
+  /* 3. Remove page simulation — let browser handle print pages */
+  .page-canvas-wrap {
+    background-image: none !important;
+    filter: none !important;
+    box-shadow: none !important;
+    width: 100% !important;
   }
 
-  /* 4. The TipTap editor wrapper fills the page */
+  .page-canvas-wrap::after {
+    display: none !important;
+  }
+
+  .page-canvas-wrap .tiptap {
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    min-height: auto !important;
+    width: 100% !important;
+  }
+
+  /* 4. TipTap editor fills the print page */
   .tiptap {
     border: none !important;
     box-shadow: none !important;
@@ -558,7 +647,7 @@ img {
     margin: 0 !important;
   }
 
-  /* 5. Page margins — set via @page */
+  /* 5. Page margins */
   @page {
     size: A4 portrait;
     margin: 20mm 18mm 20mm 18mm;
@@ -575,7 +664,7 @@ img {
     break-inside: avoid;
   }
 
-  /* 7. Ensure links print in black */
+  /* 7. Links print in black */
   a {
     color: black !important;
     text-decoration: none !important;

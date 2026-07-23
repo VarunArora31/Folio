@@ -15,8 +15,14 @@ export function ActiveUsers({ users, className, maxVisible = 3 }: ActiveUsersPro
     return null;
   }
 
-  const visibleUsers = users.slice(0, maxVisible);
-  const remainingCount = users.length - maxVisible;
+  // Deduplicate by userId — same user can appear multiple times if they
+  // have multiple tabs open
+  const uniqueUsers = users.filter(
+    (user, index, self) => self.findIndex((u) => u.userId === user.userId) === index
+  );
+
+  const visibleUsers = uniqueUsers.slice(0, maxVisible);
+  const remainingCount = uniqueUsers.length - maxVisible;
 
   const getInitials = (name: string) => {
     const parts = name.split(" ");
@@ -30,14 +36,14 @@ export function ActiveUsers({ users, className, maxVisible = 3 }: ActiveUsersPro
     <div className={cn("flex items-center", className)}>
       {/* Active users indicator text */}
       <span className="text-sm text-muted-foreground mr-2">
-        {users.length} {users.length === 1 ? "editor" : "editors"} online
+        {uniqueUsers.length} {uniqueUsers.length === 1 ? "editor" : "editors"} online
       </span>
 
       {/* Avatar stack */}
       <div className="flex -space-x-2">
-        {visibleUsers.map((user) => (
+        {visibleUsers.map((user, index) => (
           <div
-            key={user.userId}
+            key={`${user.userId}-${index}`}
             className="relative ring-2 ring-background rounded-full"
             title={user.name}
           >

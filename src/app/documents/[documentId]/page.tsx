@@ -15,24 +15,20 @@ const DocumentIdPage = async ({ params }: DocumentIdPageProps) => {
 
   if (!userId) redirect("/sign-in");
 
-  // Fetch document directly from DB (server component — no API round-trip needed)
   const [doc] = await db
     .select()
     .from(documents)
-    .where(
-      and(
-        eq(documents.id, documentId),
-        eq(documents.isDeleted, false)
-      )
-    )
+    .where(and(eq(documents.id, documentId), eq(documents.isDeleted, false)))
     .limit(1);
 
   if (!doc) notFound();
 
-  // Check access — owner or collaborator
   const isOwner = doc.ownerId === userId;
+  let userRole: "owner" | "editor" | "viewer" | "commenter" = "viewer";
 
-  if (!isOwner) {
+  if (isOwner) {
+    userRole = "owner";
+  } else {
     const [collab] = await db
       .select()
       .from(documentCollaborators)
@@ -44,21 +40,26 @@ const DocumentIdPage = async ({ params }: DocumentIdPageProps) => {
       )
       .limit(1);
 
-    if (!collab) notFound(); // no access → 404 (don't leak doc existence)
+    if (!collab) notFound(); // no access → 404
+    userRole = collab.role;
   }
 
-  // Update lastOpenedAt in background (fire and forget)
+  // Update lastOpenedAt in background
   db.update(documents)
     .set({ lastOpenedAt: new Date() })
     .where(eq(documents.id, documentId))
-    .catch(() => {}); // non-critical
+    .catch(() => {});
 
   return (
-    <DocumentShell
-      documentId={documentId}
-      initialTitle={doc.title}
-      initialContent={doc.content}
-    />
+    <>
+      <title>{doc.title || "Untitled Document"} — Folio</title>
+      <DocumentShell
+        documentId={documentId}
+        initialTitle={doc.title}
+        initialContent={doc.content}
+        userRole={userRole}
+      />
+    </>
   );
 };
 

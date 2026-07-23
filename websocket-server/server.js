@@ -1,152 +1,114 @@
 import { WebSocketServer } from "ws";
 import * as Y from "yjs";
-import * as syncProtocol from "y-protocols/sync";
-import * as awarenessProtocol from "y-protocols/awareness";
-import * as encoding from "lib0/encoding";
-import * as decoding from "lib0/decoding";
-import * as mutex from "lib0/mutex";
 import dotenv from "dotenv";
 import { validateToken, canAccessDocument } from "./auth.js";
 import {
   loadDocument,
   saveDocument,
   createSession,
-  updateSession,
   removeSession,
   cleanupStaleSessions,
 } from "./persistence.js";
-import { neon } from "@neondatabase/serverless";
 
 dotenv.config();
 
 const PORT = process.env.PORT || 1234;
 const PERSISTENCE_DEBOUNCE_MS = parseInt(process.env.PERSISTENCE_DEBOUNCE_MS) || 5000;
 const PERSISTENCE_MAX_INTERVAL_MS = parseInt(process.env.PERSISTENCE_MAX_INTERVAL_MS) || 30000;
+const AUTH_TIMEOUT_MS = 10000; // 10s to send auth message
 
-// Database connection
-const db = neon(process.env.DATABASE_URL);
-
-// ── Document Room Management ──────────────────────────────────────────────────
+// ── Document Room ─────────────────────────────────────────────────────────────
 
 class DocumentRoom {
   constructor(documentId) {
     this.documentId = documentId;
     this.ydoc = new Y.Doc();
-    this.awareness = new awarenessProtocol.Awareness(this.ydoc);
     this.connections = new Map(); // clientId → { ws, userId, sessionId, userInfo }
-    this.mux = mutex.createMutex();
-    
-    // Persistence state
+
     this.saveTimeout = null;
     this.lastSaveTime = Date.now();
     this.pendingChanges = false;
+    this.isSaving = false;
     this.isLoaded = false;
 
-    this.setupHandlers();
-  }
-
-  setupHandlers() {
-    // Listen for document updates to trigger persistence
+    // Listen for local updates to broadcast to other clients
     this.ydoc.on("update", (update, origin) => {
-      // Don't save if update came from initial load
-      if (origin !== "load") {
-        this.pendingChanges = true;
-        this.scheduleSave();
-      }
-
-      // Broadcast to all connected clients except origin
+      if (origin === "load") return;
+      this.pendingChanges = true;
+      this.scheduleSave();
       this.broadcastUpdate(update, origin);
-    });
-
-    // Listen for awareness updates (cursors, selections)
-    this.awareness.on("update", ({ added, updated, removed }) => {
-      this.broadcastAwareness();
     });
   }
 
   async initialize() {
     if (this.isLoaded) return;
-
     console.log(`[Room ${this.documentId}] Initializing...`);
-
-    // Load existing Y.js state from database
     const savedState = await loadDocument(this.documentId);
     if (savedState) {
       Y.applyUpdate(this.ydoc, savedState, "load");
-      console.log(`[Room ${this.documentId}] Loaded from database`);
+      console.log(`[Room ${this.documentId}] Loaded from DB`);
     } else {
       console.log(`[Room ${this.documentId}] Starting fresh`);
     }
-
     this.isLoaded = true;
   }
 
   scheduleSave() {
-    const now = Date.now();
-    const timeSinceLastSave = now - this.lastSaveTime;
-
-    // Clear existing timeout
-    if (this.saveTimeout) {
-      clearTimeout(this.saveTimeout);
-    }
-
-    // Force save if max interval exceeded
-    if (timeSinceLastSave >= PERSISTENCE_MAX_INTERVAL_MS) {
+    if (this.saveTimeout) clearTimeout(this.saveTimeout);
+    const elapsed = Date.now() - this.lastSaveTime;
+    if (elapsed >= PERSISTENCE_MAX_INTERVAL_MS) {
       this.persistToDatabase();
       return;
     }
-
-    // Otherwise debounce
-    this.saveTimeout = setTimeout(() => {
-      this.persistToDatabase();
-    }, PERSISTENCE_DEBOUNCE_MS);
+    this.saveTimeout = setTimeout(() => this.persistToDatabase(), PERSISTENCE_DEBOUNCE_MS);
   }
 
   async persistToDatabase() {
-    if (!this.pendingChanges) return;
-
-    await mutex.lock(this.mux, async () => {
+    if (!this.pendingChanges || this.isSaving) return;
+    this.isSaving = true;
+    try {
       const state = Y.encodeStateAsUpdate(this.ydoc);
-      const success = await saveDocument(this.documentId, state);
-
-      if (success) {
+      const ok = await saveDocument(this.documentId, state);
+      if (ok) {
         this.pendingChanges = false;
         this.lastSaveTime = Date.now();
-        console.log(`[Room ${this.documentId}] Persisted to database`);
+        console.log(`[Room ${this.documentId}] Saved to DB`);
+      }
+    } catch (err) {
+      console.error(`[Room ${this.documentId}] Save error:`, err.message);
+    } finally {
+      this.isSaving = false;
+    }
+  }
+
+  broadcastUpdate(update, originWs) {
+    const msg = JSON.stringify({ type: "update", data: Array.from(update) });
+    this.connections.forEach((conn) => {
+      if (conn.ws !== originWs && conn.ws.readyState === 1) {
+        conn.ws.send(msg);
       }
     });
   }
 
-  broadcastUpdate(update, origin) {
-    const encoder = encoding.createEncoder();
-    encoding.writeVarUint(encoder, 0); // Message type: sync
-    syncProtocol.writeUpdate(encoder, update);
-    const message = encoding.toUint8Array(encoder);
-
-    this.connections.forEach((conn, clientId) => {
-      if (conn.ws !== origin && conn.ws.readyState === 1) {
-        conn.ws.send(message, (err) => {
-          if (err) console.error(`[Room ${this.documentId}] Broadcast error:`, err);
+  broadcastAwareness(excludeWs) {
+    // Build unique user list — one entry per userId (not per connection)
+    const seen = new Set();
+    const users = [];
+    this.connections.forEach((conn) => {
+      if (!seen.has(conn.userInfo.userId)) {
+        seen.add(conn.userInfo.userId);
+        users.push({
+          userId: conn.userInfo.userId,
+          name: conn.userInfo.name,
+          color: generateUserColor(conn.userInfo.userId),
         });
       }
     });
-  }
 
-  broadcastAwareness() {
-    const encoder = encoding.createEncoder();
-    encoding.writeVarUint(encoder, 1); // Message type: awareness
-    encoding.writeVarUint8Array(
-      encoder,
-      awarenessProtocol.encodeAwarenessUpdate(
-        this.awareness,
-        Array.from(this.awareness.getStates().keys())
-      )
-    );
-    const message = encoding.toUint8Array(encoder);
-
+    const msg = JSON.stringify({ type: "awareness", users });
     this.connections.forEach((conn) => {
       if (conn.ws.readyState === 1) {
-        conn.ws.send(message);
+        conn.ws.send(msg);
       }
     });
   }
@@ -155,46 +117,20 @@ class DocumentRoom {
     await this.initialize();
 
     const clientId = generateClientId();
-    const sessionId = await createSession(this.documentId, userId, userInfo);
+    const sessionId = await createSession(this.documentId, userId, userInfo).catch(() => null);
 
     this.connections.set(clientId, { ws, userId, sessionId, userInfo });
 
-    // Set awareness state for this user
-    this.awareness.setLocalStateField(clientId, {
-      user: {
-        name: userInfo.name,
-        color: generateUserColor(userId),
-        userId: userId,
-      },
-    });
+    console.log(`[Room ${this.documentId}] "${userInfo.name}" connected (${this.connections.size} total)`);
 
-    console.log(
-      `[Room ${this.documentId}] User ${userInfo.name} connected (${this.connections.size} total)`
-    );
+    // Send full document state to new client
+    const state = Y.encodeStateAsUpdate(this.ydoc);
+    ws.send(JSON.stringify({ type: "sync_response", state: Array.from(state) }));
 
-    // Send current document state to new client
-    this.sendSyncStep1(ws, clientId);
+    // Broadcast updated presence to everyone
+    this.broadcastAwareness(null);
 
-    return { clientId, sessionId };
-  }
-
-  sendSyncStep1(ws, clientId) {
-    const encoder = encoding.createEncoder();
-    encoding.writeVarUint(encoder, 0); // Message type: sync
-    syncProtocol.writeSyncStep1(encoder, this.ydoc);
-    ws.send(encoding.toUint8Array(encoder));
-
-    // Send awareness states
-    const awarenessEncoder = encoding.createEncoder();
-    encoding.writeVarUint(awarenessEncoder, 1);
-    encoding.writeVarUint8Array(
-      awarenessEncoder,
-      awarenessProtocol.encodeAwarenessUpdate(
-        this.awareness,
-        Array.from(this.awareness.getStates().keys())
-      )
-    );
-    ws.send(encoding.toUint8Array(awarenessEncoder));
+    return clientId;
   }
 
   removeConnection(clientId) {
@@ -202,176 +138,172 @@ class DocumentRoom {
     if (!conn) return;
 
     this.connections.delete(clientId);
-    this.awareness.setLocalStateField(clientId, null);
+    if (conn.sessionId) removeSession(conn.sessionId).catch(() => {});
 
-    if (conn.sessionId) {
-      removeSession(conn.sessionId);
-    }
+    console.log(`[Room ${this.documentId}] "${conn.userInfo.name}" disconnected (${this.connections.size} remaining)`);
 
-    console.log(
-      `[Room ${this.documentId}] User ${conn.userInfo.name} disconnected (${this.connections.size} remaining)`
-    );
+    // Broadcast updated presence
+    this.broadcastAwareness(null);
 
-    // If room is empty, persist and cleanup
-    if (this.connections.size === 0) {
-      console.log(`[Room ${this.documentId}] Room empty, persisting...`);
-      this.persistToDatabase();
-    }
+    if (this.connections.size === 0) this.persistToDatabase();
   }
 
-  handleMessage(clientId, message) {
+  handleUpdate(clientId, update) {
     const conn = this.connections.get(clientId);
     if (!conn) return;
-
-    const decoder = decoding.createDecoder(message);
-    const messageType = decoding.readVarUint(decoder);
-
-    switch (messageType) {
-      case 0: // Sync
-        syncProtocol.readSyncMessage(decoder, encoding.createEncoder(), this.ydoc, conn.ws);
-        break;
-
-      case 1: // Awareness
-        awarenessProtocol.applyAwarenessUpdate(
-          this.awareness,
-          decoding.readVarUint8Array(decoder),
-          conn.ws
-        );
-        break;
-
-      case 2: // Heartbeat
-        updateSession(conn.sessionId);
-        break;
-    }
+    // Apply update from client — triggers ydoc "update" event → broadcasts to others
+    Y.applyUpdate(this.ydoc, update, conn.ws);
   }
 
   destroy() {
-    this.connections.forEach((_, clientId) => {
-      this.removeConnection(clientId);
-    });
+    this.connections.forEach((_, id) => this.removeConnection(id));
     this.ydoc.destroy();
-    this.awareness.destroy();
   }
 }
 
 // ── Room Registry ─────────────────────────────────────────────────────────────
 
-const rooms = new Map(); // documentId → DocumentRoom
+const rooms = new Map();
 
 function getRoom(documentId) {
-  if (!rooms.has(documentId)) {
-    rooms.set(documentId, new DocumentRoom(documentId));
-  }
+  if (!rooms.has(documentId)) rooms.set(documentId, new DocumentRoom(documentId));
   return rooms.get(documentId);
 }
 
 // ── WebSocket Server ──────────────────────────────────────────────────────────
 
 const wss = new WebSocketServer({ port: PORT });
-
 console.log(`🚀 Y.js Collaboration Server running on ws://localhost:${PORT}`);
 
-wss.on("connection", async (ws, req) => {
-  console.log("[Server] New connection attempt");
+wss.on("connection", (ws) => {
+  console.log("[Server] New connection");
 
-  // Parse URL parameters
-  const url = new URL(req.url, `http://${req.headers.host}`);
-  const documentId = url.searchParams.get("documentId");
-  const token = url.searchParams.get("token");
+  let authenticated = false;
+  let clientId = null;
+  let roomDocumentId = null;
 
-  // Validate required parameters
-  if (!documentId) {
-    console.log("[Server] Missing documentId");
-    ws.close(1008, "Missing documentId");
-    return;
-  }
+  // Client must send auth message within 10s or get disconnected
+  const authTimeout = setTimeout(() => {
+    if (!authenticated) {
+      console.log("[Server] Auth timeout — closing connection");
+      ws.close(1008, "Auth timeout");
+    }
+  }, AUTH_TIMEOUT_MS);
 
-  // Authenticate user
-  const user = await validateToken(token);
-  if (!user) {
-    console.log("[Server] Authentication failed");
-    ws.close(1008, "Authentication failed");
-    return;
-  }
+  ws.on("message", async (data) => {
+    let msg;
+    try {
+      msg = JSON.parse(data.toString());
+    } catch {
+      ws.close(1003, "Invalid message format");
+      return;
+    }
 
-  // Check document access
-  const hasAccess = await canAccessDocument(db, user.userId, documentId);
-  if (!hasAccess) {
-    console.log(`[Server] User ${user.userId} has no access to document ${documentId}`);
-    ws.close(1008, "Access denied");
-    return;
-  }
+    // ── Auth handshake ───────────────────────────────────────────────────────
+    if (msg.type === "auth") {
+      clearTimeout(authTimeout);
+      console.log("[Server] Auth message received, documentId:", msg.documentId);
 
-  // Add to room
-  const room = getRoom(documentId);
-  const { clientId, sessionId } = await room.addConnection(ws, user.userId, user);
+      const { token, documentId } = msg;
 
-  // Handle messages
-  ws.on("message", (data) => {
-    room.handleMessage(clientId, new Uint8Array(data));
-  });
+      if (!documentId) {
+        ws.send(JSON.stringify({ type: "auth_error", reason: "Missing documentId" }));
+        ws.close(1008, "Missing documentId");
+        return;
+      }
 
-  // Handle disconnect
-  ws.on("close", () => {
-    room.removeConnection(clientId);
+      // Validate token — gets a FRESH token sent from the client
+      const user = await validateToken(token);
+      if (!user) {
+        ws.send(JSON.stringify({ type: "auth_error", reason: "Invalid token" }));
+        ws.close(1008, "Authentication failed");
+        return;
+      }
 
-    // Cleanup empty rooms after 5 minutes
-    if (room.connections.size === 0) {
-      setTimeout(() => {
-        if (room.connections.size === 0) {
-          console.log(`[Server] Destroying empty room ${documentId}`);
-          room.destroy();
-          rooms.delete(documentId);
-        }
-      }, 5 * 60 * 1000);
+      // Check document access
+      const hasAccess = await canAccessDocument(user.userId, documentId);
+      if (!hasAccess) {
+        ws.send(JSON.stringify({ type: "auth_error", reason: "Access denied" }));
+        ws.close(1008, "Access denied");
+        return;
+      }
+
+      // Auth successful
+      authenticated = true;
+      roomDocumentId = documentId;
+
+      // Add to room — await before sending auth_ok so clientId is set
+      // before any subsequent messages arrive
+      const room = getRoom(documentId);
+      clientId = await room.addConnection(ws, user.userId, user);
+
+      // Send auth_ok AFTER room is ready — client will then send sync_request
+      ws.send(JSON.stringify({ type: "auth_ok", userId: user.userId }));
+
+      return;
+    }
+
+    // ── All other messages require auth ──────────────────────────────────────
+    if (!authenticated || !roomDocumentId || !clientId) {
+      ws.close(1008, "Not authenticated");
+      return;
+    }
+
+    const room = rooms.get(roomDocumentId);
+    if (!room) return;
+
+    if (msg.type === "update" && msg.data) {
+      room.handleUpdate(clientId, new Uint8Array(msg.data));
+    }
+
+    if (msg.type === "sync_request") {
+      const state = Y.encodeStateAsUpdate(room.ydoc);
+      ws.send(JSON.stringify({ type: "sync_response", state: Array.from(state) }));
     }
   });
 
-  ws.on("error", (error) => {
-    console.error("[Server] WebSocket error:", error.message);
+  ws.on("close", (code, reason) => {
+    console.log(`[Server] Connection closed — code: ${code}, reason: "${reason}", authenticated: ${authenticated}, clientId: ${clientId}`);
+    clearTimeout(authTimeout);
+    if (authenticated && roomDocumentId && clientId) {
+      const room = rooms.get(roomDocumentId);
+      if (room) {
+        room.removeConnection(clientId);
+        if (room.connections.size === 0) {
+          setTimeout(() => {
+            if (room.connections.size === 0) {
+              room.destroy();
+              rooms.delete(roomDocumentId);
+              console.log(`[Server] Room ${roomDocumentId} destroyed`);
+            }
+          }, 5 * 60 * 1000);
+        }
+      }
+    }
   });
+
+  ws.on("error", (err) => console.error("[Server] WS error:", err.message));
 });
 
-// ── Cleanup & Health ──────────────────────────────────────────────────────────
+// ── Cleanup ───────────────────────────────────────────────────────────────────
 
-// Cleanup stale sessions every minute
-setInterval(() => {
-  cleanupStaleSessions();
-}, 60 * 1000);
+setInterval(() => cleanupStaleSessions().catch(() => {}), 60 * 1000);
 
-// Graceful shutdown
 process.on("SIGTERM", async () => {
-  console.log("[Server] SIGTERM received, shutting down gracefully...");
-
-  // Persist all rooms
-  const persistPromises = Array.from(rooms.values()).map((room) =>
-    room.persistToDatabase()
-  );
-  await Promise.all(persistPromises);
-
-  wss.close(() => {
-    console.log("[Server] WebSocket server closed");
-    process.exit(0);
-  });
+  console.log("[Server] Shutting down...");
+  await Promise.all(Array.from(rooms.values()).map((r) => r.persistToDatabase()));
+  wss.close(() => process.exit(0));
 });
 
 // ── Utilities ─────────────────────────────────────────────────────────────────
 
 function generateClientId() {
-  return `client_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  return `${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
 }
 
 function generateUserColor(userId) {
-  // Generate consistent color from userId
-  const colors = [
-    "#FF6B6B", "#4ECDC4", "#45B7D1", "#FFA07A", "#98D8C8",
-    "#F7DC6F", "#BB8FCE", "#85C1E2", "#F8B739", "#52B788",
-  ];
-  
+  const colors = ["#FF6B6B","#4ECDC4","#45B7D1","#FFA07A","#98D8C8","#F7DC6F","#BB8FCE","#85C1E2","#F8B739","#52B788"];
   let hash = 0;
-  for (let i = 0; i < userId.length; i++) {
-    hash = userId.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  
+  for (let i = 0; i < userId.length; i++) hash = userId.charCodeAt(i) + ((hash << 5) - hash);
   return colors[Math.abs(hash) % colors.length];
 }

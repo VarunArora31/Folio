@@ -14,10 +14,9 @@ import Color from "@tiptap/extension-color";
 import TextAlign from "@tiptap/extension-text-align";
 import FontSize from "@tiptap/extension-font-size";
 import Collaboration from "@tiptap/extension-collaboration";
-import CollaborationCursor from "@tiptap/extension-collaboration-cursor";
 import { useEditorStore } from "@/store/use-editor-store";
+import type { CustomProvider } from "@/hooks/use-collaboration";
 import * as Y from "yjs";
-import type { WebsocketProvider } from "y-websocket";
 
 // ── Custom Image with alignment support ───────────────────────────────────────
 
@@ -73,17 +72,44 @@ interface EditorProps {
   initialContent: string | null;
   initialTitle: string;
   ydoc: Y.Doc | null;
-  provider: WebsocketProvider | null;
+  provider: CustomProvider | null;
+  readOnly?: boolean;
 }
 
-export const Editor = ({ documentId, initialContent, initialTitle, ydoc, provider }: EditorProps) => {
-  const { setEditor, leftMargin, rightMargin, setIsSaved } = useEditorStore();
+export const Editor = ({ documentId, initialContent, ydoc, provider, readOnly = false }: EditorProps) => {
+  const { setEditor, leftMargin, rightMargin, setIsSaved, setCurrentPage, setTotalPages } = useEditorStore();
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSaved = useRef<string | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
-  // ── Auto-save function ────────────────────────────────────────────────────
+  // A4 page height + gap = 1146px per stripe
+  const PAGE_H = 1122;
+  const GAP_H  = 24;
+  const STRIPE = PAGE_H + GAP_H;
+
+  // Track scroll position to derive current page number
+  const handleScroll = useCallback(() => {
+    if (!scrollRef.current) return;
+    const scrollTop = scrollRef.current.scrollTop;
+    const page = Math.floor(scrollTop / STRIPE) + 1;
+    setCurrentPage(Math.max(1, page));
+  }, [STRIPE, setCurrentPage]);
+
+  // Recalculate total pages when content changes
+  const updateTotalPages = useCallback(() => {
+    if (!scrollRef.current) return;
+    const editorEl = scrollRef.current.querySelector(".tiptap");
+    if (!editorEl) return;
+    const height = editorEl.scrollHeight;
+    setTotalPages(Math.max(1, Math.ceil(height / PAGE_H)));
+  }, [PAGE_H, setTotalPages]);
+
+  // ── Auto-save to REST API ─────────────────────────────────────────────────
+  // This is the primary save path — always works regardless of WebSocket state.
+  // Y.js collaboration syncs in real-time between users but this ensures
+  // content is always persisted to the database.
   const save = useCallback(async (content: string) => {
-    if (content === lastSaved.current) return; // nothing changed
+    if (content === lastSaved.current) return;
     setIsSaved(false);
     try {
       await fetch(`/api/documents/${documentId}`, {
@@ -101,19 +127,18 @@ export const Editor = ({ documentId, initialContent, initialTitle, ydoc, provide
   const editor = useEditor({
     onCreate: ({ editor }) => {
       setEditor(editor);
-      // Seed lastSaved so first load doesn't trigger a spurious save
       lastSaved.current = editor.getHTML();
+      setTimeout(updateTotalPages, 150);
     },
     onDestroy: () => setEditor(null),
     onUpdate: ({ editor }) => {
       setEditor(editor);
-      // With Y.js collaboration, auto-save happens via WebSocket
-      // But we still debounce for backup saves to REST API
-      setIsSaved(true); // Consider synced once Y.js is connected
+      setIsSaved(false);
       if (saveTimer.current) clearTimeout(saveTimer.current);
       saveTimer.current = setTimeout(() => {
         save(editor.getHTML());
-      }, 5000); // Longer debounce since Y.js handles real-time sync
+      }, 1500);
+      updateTotalPages();
     },
     onSelectionUpdate: ({ editor }) => setEditor(editor),
     onTransaction:     ({ editor }) => setEditor(editor),
@@ -128,15 +153,16 @@ export const Editor = ({ documentId, initialContent, initialTitle, ydoc, provide
 
     editorProps: {
       attributes: {
-        class: "tiptap focus:outline-none print:border-0 bg-white flex flex-col min-h-[1054px] w-[816px] pt-10",
-        style: `padding-left: ${leftMargin}px; padding-right: ${rightMargin}px; box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 4px 24px rgba(0,0,0,0.08);`,
+        class: "tiptap focus:outline-none print:border-0 flex flex-col min-h-[1122px] w-[816px]",
+        style: `padding-left: ${leftMargin}px; padding-right: ${rightMargin}px;`,
       },
     },
+    editable: !readOnly,
 
     extensions: [
-      // StarterKit with history disabled (Y.js provides its own undo/redo via Collaboration)
+      // Disable StarterKit history — Y.js handles undo/redo when connected
       StarterKit.configure({
-        // @ts-expect-error — history exists at runtime in StarterKit 3.x but missing from types
+        // @ts-expect-error — history exists at runtime in StarterKit 3.x
         history: false,
       }),
       Highlight.configure({ multicolor: true }),
@@ -150,31 +176,20 @@ export const Editor = ({ documentId, initialContent, initialTitle, ydoc, provide
       FontSize,
       LineHeight,
       TextAlign.configure({ types: ["heading", "paragraph"] }),
-      
-      // Y.js Collaboration Extensions
-      ...(ydoc && provider
-        ? [
-            Collaboration.configure({
-              document: ydoc,
-            }),
-            CollaborationCursor.configure({
-              provider: provider,
-              user: {
-                name: "Loading...", // Will be updated by awareness
-                color: "#4F46E5",
-              },
-            }),
-          ]
+
+      // Y.js Collaboration — only added when WebSocket is connected
+      ...(ydoc
+        ? [Collaboration.configure({ document: ydoc })]
         : []),
     ],
 
-    // Only set initial content if Y.js is not connected
-    // Y.js will handle content sync once connected
+    // When Y.js is connected, content comes from the synced Y.js document.
+    // When offline/disconnected, load from DB content directly.
     content: ydoc ? undefined : (initialContent || "<p></p>"),
     immediatelyRender: false,
-  }, [ydoc, provider]); // Re-create editor when Y.js connection changes
+  }, [ydoc]); // Re-create editor only when ydoc changes (not provider)
 
-  // Cleanup timer on unmount
+  // Cleanup save timer on unmount
   useEffect(() => {
     return () => {
       if (saveTimer.current) clearTimeout(saveTimer.current);
@@ -184,10 +199,17 @@ export const Editor = ({ documentId, initialContent, initialTitle, ydoc, provide
   if (!editor) return null;
 
   return (
-    <div className="size-full overflow-x-auto print-canvas-surround px-4 print:px-0 print:bg-white print:overflow-visible"
-      style={{ background: "#e8e6e1" }}>
-      <div className="relative min-w-max flex justify-center py-4 print:py-0 mx-auto print:w-full print:min-w-0">
-        <EditorContent editor={editor} />
+    <div
+      ref={scrollRef}
+      onScroll={handleScroll}
+      className="size-full overflow-x-auto overflow-y-auto print:bg-white print:overflow-visible"
+      style={{ background: "#e8e6e1" }}
+    >
+      {/* Center the 816px page canvas with vertical breathing room */}
+      <div className="flex justify-center py-8 print:py-0 print:block">
+        <div className="page-canvas-wrap print:shadow-none print:filter-none">
+          <EditorContent editor={editor} />
+        </div>
       </div>
     </div>
   );

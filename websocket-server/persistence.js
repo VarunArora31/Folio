@@ -1,7 +1,20 @@
 import * as Y from "yjs";
 import { neon } from "@neondatabase/serverless";
+import dotenv from "dotenv";
 
-const sql = neon(process.env.DATABASE_URL);
+dotenv.config();
+
+// Lazy connection — created on first use so dotenv is always loaded first
+let _sql = null;
+function getSql() {
+  if (!_sql) {
+    if (!process.env.DATABASE_URL) {
+      throw new Error("DATABASE_URL environment variable is not set");
+    }
+    _sql = neon(process.env.DATABASE_URL);
+  }
+  return _sql;
+}
 
 /**
  * Load Y.js document state from database
@@ -10,6 +23,7 @@ const sql = neon(process.env.DATABASE_URL);
  */
 export async function loadDocument(documentId) {
   try {
+    const sql = getSql();
     const result = await sql`
       SELECT y_doc_state 
       FROM documents 
@@ -37,6 +51,7 @@ export async function loadDocument(documentId) {
  */
 export async function saveDocument(documentId, state) {
   try {
+    const sql = getSql();
     await sql`
       UPDATE documents 
       SET 
@@ -64,7 +79,7 @@ export async function saveDocument(documentId, state) {
 export async function createSession(documentId, userId, userInfo) {
   try {
     const sessionId = `${userId}_${Date.now()}`;
-    
+    const sql = getSql();
     await sql`
       INSERT INTO document_sessions (id, document_id, user_id, user_name, user_email, user_avatar_url)
       VALUES (${sessionId}, ${documentId}, ${userId}, ${userInfo.name}, ${userInfo.email}, ${userInfo.avatarUrl})
@@ -87,6 +102,7 @@ export async function createSession(documentId, userId, userInfo) {
  */
 export async function updateSession(sessionId) {
   try {
+    const sql = getSql();
     await sql`
       UPDATE document_sessions 
       SET last_seen = NOW()
@@ -106,6 +122,7 @@ export async function updateSession(sessionId) {
  */
 export async function removeSession(sessionId) {
   try {
+    const sql = getSql();
     await sql`
       DELETE FROM document_sessions 
       WHERE id = ${sessionId}
@@ -126,6 +143,7 @@ export async function removeSession(sessionId) {
  */
 export async function getActiveSessions(documentId) {
   try {
+    const sql = getSql();
     const result = await sql`
       SELECT id, user_id, user_name, user_email, user_avatar_url, connected_at, last_seen
       FROM document_sessions
@@ -147,6 +165,7 @@ export async function getActiveSessions(documentId) {
  */
 export async function cleanupStaleSessions() {
   try {
+    const sql = getSql();
     const result = await sql`
       DELETE FROM document_sessions
       WHERE last_seen < NOW() - INTERVAL '5 minutes'

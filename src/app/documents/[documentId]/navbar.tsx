@@ -18,6 +18,7 @@ import { useEditorStore } from "@/store/use-editor-store";
 import { useCollaborationContext } from "@/components/collaboration/collaboration-context";
 import { ActiveUsers } from "@/components/collaboration/active-users";
 import { ConnectionStatus } from "@/components/collaboration/connection-status";
+import { ShareDialog } from "@/components/collaboration/share-dialog";
 import { saveAs } from "file-saver";
 import {
   Document,
@@ -387,7 +388,7 @@ const DocumentMenubar = ({ documentTitle }: DocumentMenubarProps) => {
 
           <MenubarSeparator />
           <MenubarItem onClick={() => window.print()}>
-            Share
+            Print
           </MenubarItem>
         </MenubarContent>
       </MenubarMenu>
@@ -484,10 +485,11 @@ const DocumentMenubar = ({ documentTitle }: DocumentMenubarProps) => {
 interface NavbarProps {
   documentId: string;
   initialTitle: string;
+  isOwner: boolean;
 }
 
-export const Navbar = ({ documentId, initialTitle }: NavbarProps) => {
-  const { isSaved } = useEditorStore();
+export const Navbar = ({ documentId, initialTitle, isOwner }: NavbarProps) => {
+  const { isSaved, currentPage, totalPages } = useEditorStore();
   const { isConnected, isSynced, activeUsers } = useCollaborationContext();
   const [starred, setStarred] = useState(false);
   const [titleForMenu, setTitleForMenu] = useState(initialTitle || "Untitled Document");
@@ -559,9 +561,16 @@ export const Navbar = ({ documentId, initialTitle }: NavbarProps) => {
         </div>
       </div>
 
-      {/* Right side: collaboration status + user avatar */}
-      <div className="flex items-center gap-3 mt-1 shrink-0">
-        {/* Active collaborators */}
+      {/* Center: page counter */}
+      <div className="hidden sm:flex items-center self-center shrink-0">
+        <span className="text-[12px] text-[#8e8e93] tabular-nums select-none">
+          Page {currentPage} of {totalPages}
+        </span>
+      </div>
+
+      {/* Right side: collaboration status + share + user avatar */}
+      <div className="flex items-center gap-2 mt-1 shrink-0">
+        {/* Other active collaborators */}
         <ActiveUsers
           users={activeUsers}
           className="hidden sm:flex"
@@ -571,6 +580,12 @@ export const Navbar = ({ documentId, initialTitle }: NavbarProps) => {
           isConnected={isConnected}
           isSynced={isSynced}
           className="hidden sm:flex text-xs py-1 px-2"
+        />
+        {/* Share button */}
+        <ShareDialog
+          documentId={documentId}
+          documentTitle={titleForMenu}
+          isOwner={isOwner}
         />
         {/* User avatar */}
         <UserButton appearance={{ elements: { avatarBox: "w-8 h-8" } }} />

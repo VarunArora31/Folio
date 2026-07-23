@@ -1,13 +1,28 @@
-import { createClerkClient } from "@clerk/backend";
+import { createClerkClient, verifyToken } from "@clerk/backend";
+import { neon } from "@neondatabase/serverless";
+import dotenv from "dotenv";
 
-const clerkClient = createClerkClient({
-  secretKey: process.env.CLERK_SECRET_KEY,
-});
+dotenv.config();
+
+let _clerkClient = null;
+function getClerkClient() {
+  if (!_clerkClient) {
+    _clerkClient = createClerkClient({
+      secretKey: process.env.CLERK_SECRET_KEY,
+    });
+  }
+  return _clerkClient;
+}
+
+let _sql = null;
+function getSql() {
+  if (!_sql) _sql = neon(process.env.DATABASE_URL);
+  return _sql;
+}
 
 /**
- * Validates a Clerk session token from WebSocket connection
- * @param {string} token - Session token from client
- * @returns {Promise<{userId: string, email: string} | null>}
+ * Validates a Clerk JWT token using verifyToken with the secret key.
+ * getToken() on the client returns a short-lived JWT signed by Clerk.
  */
 export async function validateToken(token) {
   if (!token) {
@@ -16,23 +31,28 @@ export async function validateToken(token) {
   }
 
   try {
-    // Verify the session token with Clerk
-    const session = await clerkClient.sessions.verifySession(token, token);
-    
-    if (!session || !session.userId) {
-      console.log("[Auth] Invalid session");
+    const clerk = getClerkClient();
+
+    // verifyToken is a standalone function, not a method on the client
+    const payload = await verifyToken(token, {
+      secretKey: process.env.CLERK_SECRET_KEY,
+    });
+
+    if (!payload?.sub) {
+      console.log("[Auth] No subject in token");
       return null;
     }
 
-    // Fetch user details
-    const user = await clerkClient.users.getUser(session.userId);
+    const user = await clerk.users.getUser(payload.sub);
+    console.log(`[Auth] Validated user: ${user.id}`);
 
     return {
       userId: user.id,
       email: user.emailAddresses[0]?.emailAddress || "",
-      name: user.firstName && user.lastName 
-        ? `${user.firstName} ${user.lastName}` 
-        : user.username || "Anonymous",
+      name:
+        user.firstName && user.lastName
+          ? `${user.firstName} ${user.lastName}`
+          : user.username || user.emailAddresses[0]?.emailAddress || "Anonymous",
       avatarUrl: user.imageUrl,
     };
   } catch (error) {
@@ -41,26 +61,19 @@ export async function validateToken(token) {
   }
 }
 
-/**
- * Checks if user has access to a document
- * @param {object} db - Database connection
- * @param {string} userId - Clerk user ID
- * @param {string} documentId - Document ID
- * @returns {Promise<boolean>}
- */
-export async function canAccessDocument(db, userId, documentId) {
+export async function canAccessDocument(userId, documentId) {
   try {
-    // Check if user is owner or collaborator
-    const result = await db.query(
-      `SELECT EXISTS(
-        SELECT 1 FROM documents WHERE id = $1 AND owner_id = $2
+    const sql = getSql();
+    const result = await sql`
+      SELECT EXISTS(
+        SELECT 1 FROM documents
+          WHERE id = ${documentId} AND owner_id = ${userId} AND is_deleted = false
         UNION
-        SELECT 1 FROM document_collaborators WHERE document_id = $1 AND user_id = $2
-      ) as has_access`,
-      [documentId, userId]
-    );
-
-    return result.rows[0]?.has_access || false;
+        SELECT 1 FROM document_collaborators
+          WHERE document_id = ${documentId} AND user_id = ${userId}
+      ) AS has_access
+    `;
+    return result[0]?.has_access === true;
   } catch (error) {
     console.error("[Auth] Access check failed:", error.message);
     return false;

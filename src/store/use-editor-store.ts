@@ -14,6 +14,11 @@ interface EditorStore {
   // Save state — shown in navbar cloud icon
   isSaved: boolean;
   setIsSaved: (saved: boolean) => void;
+  // Page state — shown in navbar
+  currentPage: number;
+  totalPages: number;
+  setCurrentPage: (page: number) => void;
+  setTotalPages: (pages: number) => void;
 }
 
 export const useEditorStore = create<EditorStore>((set) => ({
@@ -27,4 +32,8 @@ export const useEditorStore = create<EditorStore>((set) => ({
   setRightMargin: (margin) => set({ rightMargin: margin }),
   isSaved: true,
   setIsSaved: (saved) => set({ isSaved: saved }),
+  currentPage: 1,
+  totalPages: 1,
+  setCurrentPage: (page) => set({ currentPage: page }),
+  setTotalPages: (pages) => set({ totalPages: pages }),
 }));

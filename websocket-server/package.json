@@ -10,9 +10,7 @@
   },
   "dependencies": {
     "ws": "^8.18.0",
-    "yjs": "^13.6.20",
-    "y-websocket": "^2.0.4",
-    "lib0": "^0.2.98",
+    "yjs": "^13.6.31",
     "dotenv": "^16.4.7",
     "@neondatabase/serverless": "^1.1.0",
     "@clerk/backend": "^1.17.3"
