@@ -1,12 +1,58 @@
-import { auth } from "@clerk/nextjs/server";
+import { auth, clerkClient } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { documents, documentCollaborators, users } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { nanoid } from "nanoid";
 
+// ── Shared helper: look up a Clerk user by email and auto-sync to DB ──────────
+
+async function findOrSyncUserByEmail(email: string) {
+  // 1. Try our DB first
+  const [existing] = await db
+    .select()
+    .from(users)
+    .where(eq(users.email, email.toLowerCase().trim()))
+    .limit(1);
+
+  if (existing) return existing;
+
+  // 2. Fall back to Clerk API — user may exist but webhook hasn't fired
+  try {
+    const clerk = await clerkClient();
+    const result = await clerk.users.getUserList({
+      emailAddress: [email.toLowerCase().trim()],
+    });
+
+    if (!result.data[0]) return null;
+
+    const clerkUser = result.data[0];
+    const name = [clerkUser.firstName, clerkUser.lastName].filter(Boolean).join(" ") || null;
+    const userEmail = clerkUser.emailAddresses[0]?.emailAddress || email.toLowerCase().trim();
+
+    // Auto-sync into DB
+    await db.insert(users).values({
+      id: clerkUser.id,
+      email: userEmail,
+      name,
+      avatarUrl: clerkUser.imageUrl || null,
+    }).onConflictDoNothing();
+
+    // Return the synced user
+    const [synced] = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, clerkUser.id))
+      .limit(1);
+
+    return synced ?? null;
+  } catch (err) {
+    console.error("[Collaborators] Clerk lookup failed:", err);
+    return null;
+  }
+}
+
 // ── GET /api/documents/[documentId]/collaborators ─────────────────────────────
-// List all collaborators on a document
 
 export async function GET(
   _req: NextRequest,
@@ -16,7 +62,6 @@ export async function GET(
   const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  // Only owner can view collaborators
   const [doc] = await db
     .select()
     .from(documents)
@@ -44,7 +89,6 @@ export async function GET(
 }
 
 // ── POST /api/documents/[documentId]/collaborators ────────────────────────────
-// Invite a user by email with a specific role
 
 export async function POST(
   req: NextRequest,
@@ -75,82 +119,14 @@ export async function POST(
   if (!doc) return NextResponse.json({ error: "Not found" }, { status: 404 });
   if (doc.ownerId !== userId) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-  // Find the user by email
-  const [invitedUser] = await db
-    .select()
-    .from(users)
-    .where(eq(users.email, email.toLowerCase().trim()))
-    .limit(1);
+  // Find or auto-sync invited user
+  const invitedUser = await findOrSyncUserByEmail(email);
 
   if (!invitedUser) {
-    // User might exist in Clerk but not yet synced to our DB via webhook.
-    // Try to find them in Clerk directly and auto-sync.
-    try {
-      const { createClerkClient } = await import("@clerk/backend");
-      const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
-      const clerkUsers = await clerk.users.getUserList({
-        emailAddress: [email.toLowerCase().trim()],
-      });
-
-      if (clerkUsers.totalCount === 0 || !clerkUsers.data[0]) {
-        return NextResponse.json(
-          { error: "No account found with that email. They need to sign up first." },
-          { status: 404 }
-        );
-      }
-
-      const clerkUser = clerkUsers.data[0];
-      const name = [clerkUser.firstName, clerkUser.lastName].filter(Boolean).join(" ") || null;
-      const userEmail = clerkUser.emailAddresses[0]?.emailAddress || email.toLowerCase().trim();
-
-      // Auto-sync this user into our DB
-      await db.insert(users).values({
-        id: clerkUser.id,
-        email: userEmail,
-        name,
-        avatarUrl: clerkUser.imageUrl || null,
-      }).onConflictDoNothing();
-
-      // Now add as collaborator
-      const [existingAfterSync] = await db
-        .select()
-        .from(documentCollaborators)
-        .where(
-          and(
-            eq(documentCollaborators.documentId, documentId),
-            eq(documentCollaborators.userId, clerkUser.id)
-          )
-        )
-        .limit(1);
-
-      if (existingAfterSync) {
-        await db
-          .update(documentCollaborators)
-          .set({ role })
-          .where(eq(documentCollaborators.id, existingAfterSync.id));
-        return NextResponse.json({ message: `Updated ${name || email}'s role to ${role}`, updated: true });
-      }
-
-      await db.insert(documentCollaborators).values({
-        id: nanoid(),
-        documentId,
-        userId: clerkUser.id,
-        role,
-        invitedById: userId,
-      });
-
-      return NextResponse.json({
-        message: `${name || email} added as ${role}`,
-        added: true,
-      });
-
-    } catch (err) {
-      console.error("[Collaborators] Clerk lookup failed:", err);
-      return NextResponse.json(
-        { error: "No account found with that email. They need to sign up first." },
-        { status: 404 }
-      );
-    }
+    return NextResponse.json(
+      { error: "No account found with that email. They need to sign up first." },
+      { status: 404 }
+    );
   }
 
   if (invitedUser.id === userId) {
@@ -181,7 +157,6 @@ export async function POST(
     });
   }
 
-  // Add new collaborator
   await db.insert(documentCollaborators).values({
     id: nanoid(),
     documentId,
@@ -197,7 +172,6 @@ export async function POST(
 }
 
 // ── DELETE /api/documents/[documentId]/collaborators ─────────────────────────
-// Remove a collaborator
 
 export async function DELETE(
   req: NextRequest,
@@ -212,7 +186,6 @@ export async function DELETE(
     return NextResponse.json({ error: "collaboratorId required" }, { status: 400 });
   }
 
-  // Only owner can remove collaborators
   const [doc] = await db
     .select()
     .from(documents)

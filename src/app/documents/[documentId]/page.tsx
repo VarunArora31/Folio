@@ -1,4 +1,4 @@
-import { auth } from "@clerk/nextjs/server";
+import { auth, clerkClient } from "@clerk/nextjs/server";
 import { redirect, notFound } from "next/navigation";
 import { db } from "@/db";
 import { documents, documentCollaborators, users } from "@/db/schema";
@@ -24,8 +24,7 @@ const DocumentIdPage = async ({ params }: DocumentIdPageProps) => {
 
   if (!existingUser) {
     try {
-      const { createClerkClient } = await import("@clerk/backend");
-      const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
+      const clerk = await clerkClient();
       const clerkUser = await clerk.users.getUser(userId);
       const name = [clerkUser.firstName, clerkUser.lastName].filter(Boolean).join(" ") || null;
       const email = clerkUser.emailAddresses[0]?.emailAddress;
