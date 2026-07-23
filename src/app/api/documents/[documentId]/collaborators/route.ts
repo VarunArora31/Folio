@@ -83,10 +83,74 @@ export async function POST(
     .limit(1);
 
   if (!invitedUser) {
-    return NextResponse.json(
-      { error: "No account found with that email. They need to sign up first." },
-      { status: 404 }
-    );
+    // User might exist in Clerk but not yet synced to our DB via webhook.
+    // Try to find them in Clerk directly and auto-sync.
+    try {
+      const { createClerkClient } = await import("@clerk/backend");
+      const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
+      const clerkUsers = await clerk.users.getUserList({
+        emailAddress: [email.toLowerCase().trim()],
+      });
+
+      if (clerkUsers.totalCount === 0 || !clerkUsers.data[0]) {
+        return NextResponse.json(
+          { error: "No account found with that email. They need to sign up first." },
+          { status: 404 }
+        );
+      }
+
+      const clerkUser = clerkUsers.data[0];
+      const name = [clerkUser.firstName, clerkUser.lastName].filter(Boolean).join(" ") || null;
+      const userEmail = clerkUser.emailAddresses[0]?.emailAddress || email.toLowerCase().trim();
+
+      // Auto-sync this user into our DB
+      await db.insert(users).values({
+        id: clerkUser.id,
+        email: userEmail,
+        name,
+        avatarUrl: clerkUser.imageUrl || null,
+      }).onConflictDoNothing();
+
+      // Now add as collaborator
+      const [existingAfterSync] = await db
+        .select()
+        .from(documentCollaborators)
+        .where(
+          and(
+            eq(documentCollaborators.documentId, documentId),
+            eq(documentCollaborators.userId, clerkUser.id)
+          )
+        )
+        .limit(1);
+
+      if (existingAfterSync) {
+        await db
+          .update(documentCollaborators)
+          .set({ role })
+          .where(eq(documentCollaborators.id, existingAfterSync.id));
+        return NextResponse.json({ message: `Updated ${name || email}'s role to ${role}`, updated: true });
+      }
+
+      await db.insert(documentCollaborators).values({
+        id: nanoid(),
+        documentId,
+        userId: clerkUser.id,
+        role,
+        invitedById: userId,
+      });
+
+      return NextResponse.json({
+        message: `${name || email} added as ${role}`,
+        added: true,
+      });
+
+    } catch (err) {
+      console.error("[Collaborators] Clerk lookup failed:", err);
+      return NextResponse.json(
+        { error: "No account found with that email. They need to sign up first." },
+        { status: 404 }
+      );
+    }
   }
 
   if (invitedUser.id === userId) {
