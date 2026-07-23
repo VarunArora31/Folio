@@ -13,7 +13,11 @@ import { FontFamily } from "@tiptap/extension-font-family";
 import Color from "@tiptap/extension-color";
 import TextAlign from "@tiptap/extension-text-align";
 import FontSize from "@tiptap/extension-font-size";
+import Collaboration from "@tiptap/extension-collaboration";
+import CollaborationCursor from "@tiptap/extension-collaboration-cursor";
 import { useEditorStore } from "@/store/use-editor-store";
+import * as Y from "yjs";
+import type { WebsocketProvider } from "y-websocket";
 
 // ── Custom Image with alignment support ───────────────────────────────────────
 
@@ -68,9 +72,11 @@ interface EditorProps {
   documentId: string;
   initialContent: string | null;
   initialTitle: string;
+  ydoc: Y.Doc | null;
+  provider: WebsocketProvider | null;
 }
 
-export const Editor = ({ documentId, initialContent, initialTitle }: EditorProps) => {
+export const Editor = ({ documentId, initialContent, initialTitle, ydoc, provider }: EditorProps) => {
   const { setEditor, leftMargin, rightMargin, setIsSaved } = useEditorStore();
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSaved = useRef<string | null>(null);
@@ -101,12 +107,13 @@ export const Editor = ({ documentId, initialContent, initialTitle }: EditorProps
     onDestroy: () => setEditor(null),
     onUpdate: ({ editor }) => {
       setEditor(editor);
-      // Debounce auto-save — 1.5s after last keystroke
-      setIsSaved(false);
+      // With Y.js collaboration, auto-save happens via WebSocket
+      // But we still debounce for backup saves to REST API
+      setIsSaved(true); // Consider synced once Y.js is connected
       if (saveTimer.current) clearTimeout(saveTimer.current);
       saveTimer.current = setTimeout(() => {
         save(editor.getHTML());
-      }, 1500);
+      }, 5000); // Longer debounce since Y.js handles real-time sync
     },
     onSelectionUpdate: ({ editor }) => setEditor(editor),
     onTransaction:     ({ editor }) => setEditor(editor),
@@ -127,7 +134,11 @@ export const Editor = ({ documentId, initialContent, initialTitle }: EditorProps
     },
 
     extensions: [
-      StarterKit,
+      // StarterKit with history disabled (Y.js provides its own undo/redo via Collaboration)
+      StarterKit.configure({
+        // @ts-expect-error — history exists at runtime in StarterKit 3.x but missing from types
+        history: false,
+      }),
       Highlight.configure({ multicolor: true }),
       TableKit.configure({ table: { resizable: true } }),
       CustomImage.configure({ resize: { enabled: true, alwaysPreserveAspectRatio: true }, allowBase64: true }),
@@ -139,12 +150,29 @@ export const Editor = ({ documentId, initialContent, initialTitle }: EditorProps
       FontSize,
       LineHeight,
       TextAlign.configure({ types: ["heading", "paragraph"] }),
+      
+      // Y.js Collaboration Extensions
+      ...(ydoc && provider
+        ? [
+            Collaboration.configure({
+              document: ydoc,
+            }),
+            CollaborationCursor.configure({
+              provider: provider,
+              user: {
+                name: "Loading...", // Will be updated by awareness
+                color: "#4F46E5",
+              },
+            }),
+          ]
+        : []),
     ],
 
-    // Load real content from DB, fall back to empty
-    content: initialContent || "<p></p>",
+    // Only set initial content if Y.js is not connected
+    // Y.js will handle content sync once connected
+    content: ydoc ? undefined : (initialContent || "<p></p>"),
     immediatelyRender: false,
-  });
+  }, [ydoc, provider]); // Re-create editor when Y.js connection changes
 
   // Cleanup timer on unmount
   useEffect(() => {

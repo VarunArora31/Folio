@@ -15,6 +15,9 @@ import {
 } from "@/components/ui/menubar";
 import { UserButton } from "@clerk/nextjs";
 import { useEditorStore } from "@/store/use-editor-store";
+import { useCollaborationContext } from "@/components/collaboration/collaboration-context";
+import { ActiveUsers } from "@/components/collaboration/active-users";
+import { ConnectionStatus } from "@/components/collaboration/connection-status";
 import { saveAs } from "file-saver";
 import {
   Document,
@@ -485,6 +488,7 @@ interface NavbarProps {
 
 export const Navbar = ({ documentId, initialTitle }: NavbarProps) => {
   const { isSaved } = useEditorStore();
+  const { isConnected, isSynced, activeUsers } = useCollaborationContext();
   const [starred, setStarred] = useState(false);
   const [titleForMenu, setTitleForMenu] = useState(initialTitle || "Untitled Document");
 
@@ -555,8 +559,20 @@ export const Navbar = ({ documentId, initialTitle }: NavbarProps) => {
         </div>
       </div>
 
-      {/* User avatar */}
-      <div className="flex items-center mt-1 shrink-0">
+      {/* Right side: collaboration status + user avatar */}
+      <div className="flex items-center gap-3 mt-1 shrink-0">
+        {/* Active collaborators */}
+        <ActiveUsers
+          users={activeUsers}
+          className="hidden sm:flex"
+        />
+        {/* Connection/sync status */}
+        <ConnectionStatus
+          isConnected={isConnected}
+          isSynced={isSynced}
+          className="hidden sm:flex text-xs py-1 px-2"
+        />
+        {/* User avatar */}
         <UserButton appearance={{ elements: { avatarBox: "w-8 h-8" } }} />
       </div>
     </nav>

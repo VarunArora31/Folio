@@ -5,8 +5,16 @@ import {
   boolean,
   integer,
   pgEnum,
+  customType,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
+
+// ── Custom bytea type (not exported in drizzle-orm 0.45.x) ───────────────────
+const bytea = customType<{ data: Buffer; notNull: false; default: false }>({
+  dataType() {
+    return "bytea";
+  },
+});
 
 // ── Enums ─────────────────────────────────────────────────────────────────────
 
@@ -77,8 +85,14 @@ export const documents = pgTable("documents", {
   id: text("id").primaryKey(),
   title: text("title").notNull().default("Untitled Document"),
 
-  // Content stored as Tiptap JSON string
+  // Content stored as Tiptap JSON string (legacy, kept for backward compatibility)
   content: text("content"),
+
+  // Y.js collaboration state (binary encoded Y.js document)
+  yDocState: bytea("y_doc_state"),
+  
+  // Document version counter (increments on each save)
+  docVersion: integer("doc_version").notNull().default(0),
 
   // Owner is always a user
   ownerId: text("owner_id")
@@ -141,6 +155,24 @@ export const notifications = pgTable("notifications", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// ── Document Sessions ─────────────────────────────────────────────────────────
+// Tracks active users currently editing a document (for presence/awareness)
+
+export const documentSessions = pgTable("document_sessions", {
+  id: text("id").primaryKey(),
+  documentId: text("document_id")
+    .notNull()
+    .references(() => documents.id, { onDelete: "cascade" }),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  userName: text("user_name"),
+  userEmail: text("user_email"),
+  userAvatarUrl: text("user_avatar_url"),
+  connectedAt: timestamp("connected_at").defaultNow().notNull(),
+  lastSeen: timestamp("last_seen").defaultNow().notNull(),
+});
+
 // ── Relations ─────────────────────────────────────────────────────────────────
 
 export const usersRelations = relations(users, ({ many }) => ({
@@ -148,6 +180,7 @@ export const usersRelations = relations(users, ({ many }) => ({
   collaborations: many(documentCollaborators),
   orgMemberships: many(organizationMembers),
   notifications: many(notifications),
+  sessions: many(documentSessions),
 }));
 
 export const organizationsRelations = relations(organizations, ({ one, many }) => ({
@@ -181,6 +214,7 @@ export const documentsRelations = relations(documents, ({ one, many }) => ({
   }),
   collaborators: many(documentCollaborators),
   notifications: many(notifications),
+  sessions: many(documentSessions),
 }));
 
 export const documentCollaboratorsRelations = relations(documentCollaborators, ({ one }) => ({
@@ -213,6 +247,17 @@ export const notificationsRelations = relations(notifications, ({ one }) => ({
   }),
 }));
 
+export const documentSessionsRelations = relations(documentSessions, ({ one }) => ({
+  document: one(documents, {
+    fields: [documentSessions.documentId],
+    references: [documents.id],
+  }),
+  user: one(users, {
+    fields: [documentSessions.userId],
+    references: [users.id],
+  }),
+}));
+
 // ── TypeScript types (inferred from schema) ───────────────────────────────────
 
 export type User = typeof users.$inferSelect;
@@ -224,3 +269,5 @@ export type NewOrganization = typeof organizations.$inferInsert;
 export type OrganizationMember = typeof organizationMembers.$inferSelect;
 export type DocumentCollaborator = typeof documentCollaborators.$inferSelect;
 export type Notification = typeof notifications.$inferSelect;
+export type DocumentSession = typeof documentSessions.$inferSelect;
+export type NewDocumentSession = typeof documentSessions.$inferInsert;

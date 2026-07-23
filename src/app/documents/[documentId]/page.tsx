@@ -2,11 +2,8 @@ import { auth } from "@clerk/nextjs/server";
 import { redirect, notFound } from "next/navigation";
 import { db } from "@/db";
 import { documents, documentCollaborators } from "@/db/schema";
-import { eq, and, or } from "drizzle-orm";
-import { Editor } from "./editor";
-import { Toolbar } from "./toolbar";
-import { Navbar } from "./navbar";
-import { Ruler } from "./ruler";
+import { eq, and } from "drizzle-orm";
+import { DocumentShell } from "./document-shell";
 
 interface DocumentIdPageProps {
   params: Promise<{ documentId: string }>;
@@ -57,26 +54,11 @@ const DocumentIdPage = async ({ params }: DocumentIdPageProps) => {
     .catch(() => {}); // non-critical
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: "#e8e6e1" }}>
-      {/* Top navigation */}
-      <Navbar documentId={documentId} initialTitle={doc.title} />
-
-      {/* Toolbar */}
-      <div id="toolbar-container" className="sticky top-0 z-10 border-b px-2 sm:px-4 py-0.5 sm:py-1 print:hidden"
-        style={{ background: "#2c2c2e", borderColor: "#3a3a3c" }}>
-        <Toolbar />
-      </div>
-
-      {/* Margin ruler */}
-      <Ruler />
-
-      {/* Editor — loads real content, auto-saves on change */}
-      <Editor
-        documentId={documentId}
-        initialContent={doc.content}
-        initialTitle={doc.title}
-      />
-    </div>
+    <DocumentShell
+      documentId={documentId}
+      initialTitle={doc.title}
+      initialContent={doc.content}
+    />
   );
 };
 
