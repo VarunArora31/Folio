@@ -34,11 +34,13 @@ import {
 
 const FolioLogo = () => (
   <svg width="32" height="32" viewBox="0 0 32 32" fill="none" aria-label="Folio">
-    <rect width="32" height="32" rx="6" fill="white" />
-    <rect x="7" y="8" width="12" height="2" rx="1" fill="black" />
-    <rect x="7" y="13" width="18" height="2" rx="1" fill="black" />
-    <rect x="7" y="18" width="14" height="2" rx="1" fill="black" />
-    <rect x="7" y="23" width="10" height="2" rx="1" fill="black" />
+    <rect width="32" height="32" rx="7" fill="#1c1c1e"/>
+    {/* Vertical stem */}
+    <rect x="9" y="7" width="3.5" height="18" rx="1" fill="white"/>
+    {/* Top bar */}
+    <rect x="9" y="7" width="14" height="3.5" rx="1" fill="white"/>
+    {/* Middle bar */}
+    <rect x="9" y="14.25" width="10" height="3" rx="1" fill="white"/>
   </svg>
 );
 

@@ -260,6 +260,15 @@ wss.on("connection", (ws) => {
       const state = Y.encodeStateAsUpdate(room.ydoc);
       ws.send(JSON.stringify({ type: "sync_response", state: Array.from(state) }));
     }
+
+    // Client sends updated user info (name/color) after connecting
+    if (msg.type === "awareness_update" && msg.user) {
+      const conn = room.connections.get(clientId);
+      if (conn && msg.user.name) {
+        conn.userInfo = { ...conn.userInfo, name: msg.user.name };
+        room.broadcastAwareness(null);
+      }
+    }
   });
 
   ws.on("close", (code, reason) => {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { useUser } from "@clerk/nextjs";
 import { useCollaboration } from "@/hooks/use-collaboration";
 import { CollaborationProvider } from "@/components/collaboration/collaboration-context";
 import { Navbar } from "./navbar";
@@ -23,10 +24,26 @@ export function DocumentShell({
   initialContent,
   userRole,
 }: DocumentShellProps) {
-  // ydoc is always initialized immediately via useState(() => new Y.Doc())
-  // provider is null until WebSocket connects — editor handles this gracefully
+  const { user } = useUser();
+
+  // Derive display name from real Clerk user — no hardcoding
+  const currentUserName = user
+    ? user.fullName || user.username || user.primaryEmailAddress?.emailAddress || "Unknown"
+    : "Unknown";
+
   const { ydoc, provider, isConnected, isSynced, activeUsers, error } =
     useCollaboration({ documentId, enabled: true });
+
+  // Once provider is connected and we have the real user name, update awareness
+  useEffect(() => {
+    if (provider && isConnected && user) {
+      provider.updateAwareness({
+        name: currentUserName,
+        color: generateUserColor(user.id),
+        userId: user.id,
+      });
+    }
+  }, [provider, isConnected, user, currentUserName]);
 
   // Keep browser tab title in sync with document title
   useEffect(() => {
@@ -77,3 +94,17 @@ export function DocumentShell({
     </CollaborationProvider>
   );
 }
+
+// Same deterministic color as server — keeps colors consistent
+function generateUserColor(userId: string): string {
+  const colors = [
+    "#FF6B6B", "#4ECDC4", "#45B7D1", "#FFA07A", "#98D8C8",
+    "#F7DC6F", "#BB8FCE", "#85C1E2", "#F8B739", "#52B788",
+  ];
+  let hash = 0;
+  for (let i = 0; i < userId.length; i++) {
+    hash = userId.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return colors[Math.abs(hash) % colors.length];
+}
+

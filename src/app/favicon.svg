@@ -1,7 +1,11 @@
-<svg width="32" height="32" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <rect width="36" height="36" rx="8" fill="#1c1c1e"/>
-  <rect x="8" y="9"  width="14" height="2.5" rx="1.25" fill="white"/>
-  <rect x="8" y="15" width="20" height="2.5" rx="1.25" fill="white"/>
-  <rect x="8" y="21" width="16" height="2.5" rx="1.25" fill="white"/>
-  <rect x="8" y="27" width="11" height="2.5" rx="1.25" fill="white"/>
+<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Dark rounded square background -->
+  <rect width="32" height="32" rx="7" fill="#1c1c1e"/>
+  <!-- Letter F drawn as paths — works in all browsers including Chrome favicons -->
+  <!-- Vertical stem -->
+  <rect x="9" y="7" width="3.5" height="18" rx="1" fill="white"/>
+  <!-- Top horizontal bar -->
+  <rect x="9" y="7" width="14" height="3.5" rx="1" fill="white"/>
+  <!-- Middle horizontal bar -->
+  <rect x="9" y="14.25" width="10" height="3" rx="1" fill="white"/>
 </svg>
